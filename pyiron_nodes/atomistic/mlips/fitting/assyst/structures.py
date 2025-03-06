@@ -133,16 +133,13 @@ def SpaceGroupSampling(input: SpaceGroupInput.dataclass) -> list[Atoms]:
 
 @Workflow.wrap.as_function_node
 def CombineStructures(
-        set1: list[Atoms],
-        set2: list[Atoms],
-        set3: list[Atoms] | None,
-        set4: list[Atoms] | None,
-        set5: list[Atoms] | None,
+        spacegroups: list[Atoms],
+        volume_relax: list[Atoms],
+        full_relax: list[Atoms],
+        rattle: list[Atoms],
+        stretch: list[Atoms],
 ) -> list[Atoms]:
-    """Combine a number of structure lists into a single list."""
-    set3 = set3 or []
-    set4 = set4 or []
-    set5 = set5 or []
+    """Combine individual structure sets into a full training set."""
     structures = set1 + set2 + set3 + set4 + set5
     return structures
 
