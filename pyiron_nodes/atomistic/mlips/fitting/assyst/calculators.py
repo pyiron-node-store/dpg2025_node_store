@@ -1,42 +1,10 @@
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from pyiron_workflow import Workflow
 
+from pyiron_nodes.atomistic.mlips.calculator._generic import AseCalculatorConfig
+
 from ase import Atoms
-from ase.calculators.calculator import Calculator
-
-class AseCalculatorConfig(ABC):
-    @abstractmethod
-    def get_calculator(self) -> Calculator:
-        pass
-
-@dataclass
-class PawDftInput:
-    encut: int | float | None = 320.
-    kspacing: float | None = 0.5
-
-    scf_energy_convergence: float = 1e-2
-
-@Workflow.wrap.as_dataclass_node
-@dataclass
-class GpawInput(AseCalculatorConfig, PawDftInput):
-    def get_calculator(self, use_symmetry=True):
-        return gpaw.GPAW(
-            xc='PBE', 
-            kpts=(1,1,1), 
-            h=.25,
-            nbands=-2, 
-            mode=gpaw.PW(self.encut, dedecut='estimate'),
-            #FIXME deliberately high values for testing
-            convergence={
-                'energy': self.scf_energy_convergence,
-                'density': 1,
-                'eigenstates': 1e-3,
-            },
-            symmetry={'point_group': use_symmetry},
-            txt=None,
-        )
 
 @Workflow.wrap.as_dataclass_node
 @dataclass
@@ -70,7 +38,7 @@ class RelaxMode(Enum):
 
 
 @Workflow.wrap.as_function_node
-def Relax(mode: str | RelaxMode, calculator: AseCalculatorConfig, opt: GenericOptimizerSettings.dataclass, structure: Atoms) -> Atoms:
+def Relax(mode: str, calculator: AseCalculatorConfig, opt: GenericOptimizerSettings.dataclass, structure: Atoms) -> Atoms:
     from ase.optimize import LBFGS
     from ase.calculators.singlepoint import SinglePointCalculator
 
@@ -125,15 +93,3 @@ def RelaxLoop(
                 Relax.node_function(mode, calculator, opt, structure)
         )
     return relaxed_structures
-
-from matgl.ext.ase import M3GNetCalculator
-from matgl import load_model, models
-
-GPA2EVA3 = 0.006_241_509_074
-@Workflow.wrap.as_dataclass_node
-@dataclass
-class M3gnetConfig(AseCalculatorConfig):
-    model: str = "M3GNet-MP-2021.2.8-PES"
-
-    def get_calculator(self, use_symmetry=True):
-        return M3GNetCalculator(load_model(self.model), compute_stress=True, stress_weight=GPA2EVA3)

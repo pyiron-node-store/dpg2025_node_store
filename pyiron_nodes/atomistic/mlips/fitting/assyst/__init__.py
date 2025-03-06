@@ -10,8 +10,9 @@ from .structures import (
         SaveStructures
 )
 from .random import RattleLoop, StretchLoop
-from .calculators import M3gnetConfig, GenericOptimizerSettings, Relax, RelaxLoop
+from .calculators import GenericOptimizerSettings, Relax, RelaxLoop
 from pyiron_nodes.atomistic.structure.view import PlotSPG
+from pyiron_nodes.atomistic.mlips.calculator.grace import Grace
 
 def make_assyst(name, *elements, delete_existing_savefiles=False):
     # TODO!
@@ -42,7 +43,7 @@ def make_assyst(name, *elements, delete_existing_savefiles=False):
     spg = SpaceGroupSampling(inp)
     plotspg = PlotSPG(spg)
 
-    calc_config = M3gnetConfig()
+    calc_config = Grace()
     optimizer_settings = GenericOptimizerSettings()
 
     volume_relax = RelaxLoop(mode="volume", calculator=calc_config,
