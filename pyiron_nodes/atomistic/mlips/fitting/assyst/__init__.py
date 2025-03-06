@@ -11,7 +11,7 @@ from .structures import (
 )
 from .random import RattleLoop, StretchLoop
 from .calculators import M3gnetConfig, GenericOptimizerSettings, Relax, RelaxLoop
-from .plot import PlotSPG
+from pyiron_nodes.atomistic.structure.view import PlotSPG
 
 def make_assyst(name, *elements, delete_existing_savefiles=False):
     # TODO!
