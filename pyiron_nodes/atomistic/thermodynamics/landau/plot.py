@@ -1,0 +1,189 @@
+import numpy as np
+
+import landau
+
+from pyiron_workflow import as_function_node
+
+
+@as_function_node(use_cache=False)
+def TransitionTemperature(
+        phase1, phase2,
+        Tmin: int | float,
+        Tmax: int | float,
+        dmu: int | float | None = 0,
+        plot: bool = True
+) -> float:
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from IPython import display
+    df = landau.calculate.calc_phase_diagram([phase1, phase2], np.linspace(Tmin, Tmax), dmu, keep_unstable=True)
+    try:
+        fm, Tm = df.query('border and T!=@Tmin and T!=@Tmax')[['f','T']].iloc[0].tolist()
+    except IndexError:
+        display("Transition Point not found!")
+        fm, Tm = np.nan, np.nan
+    if plot:
+        sns.lineplot(
+            data=df,
+            x='T', y='f',
+            hue='phase',
+            style='stable', style_order=[True, False],
+        )
+        plt.axvline(Tm, color='k', linestyle='dotted', alpha=.5)
+        plt.scatter(Tm, fm, marker='o', c='k', zorder=10)
+
+        dfa =  np.ptp(df['f'].dropna())
+        dft =  np.ptp(df['T'].dropna())
+        plt.text(Tm + .05 * dft, fm + dfa * .1, rf"$T_m = {Tm:.0f}\,\mathrm{{K}}$", rotation='vertical', ha='center')
+        plt.xlabel("Temperature [K]")
+        plt.ylabel("Free Energy [eV/atom]")
+        plt.show()
+    return Tm
+
+
+def guess_mu_range(phases, Tmax, samples):
+    """Guess chemical potential window from the ideal solution.
+
+    Find a chemical potential reference that equilibrates ~50% concentration in the stable phase.
+    Use mean of all phases to side step problems caused by line phases with concentration
+    dependence, these would always return their fixed concentration and confuse the optimizer.
+
+    With that reference simply apply the chemical potential in an ideal solution on an equispaced
+    concentration grid.
+
+    Args:
+        phases: list of phases to consider
+        Tmax: temperature at which to estimate 
+        samples: how many mu samples to return
+
+    Returns:
+        array of chemical potentials that likely cover the whole concentration space
+    """
+    import landau
+    import scipy.optimize as so
+    mu0, = so.fmin(
+        lambda mu: (0.5 - np.mean([p.concentration(Tmax, mu) for p in phases]))**2,
+        x0=0, 
+        disp=False
+    )
+    cc = np.linspace(0, 1, samples+2)[1:-1]
+    return mu0 - Tmax * landau.phases.Sprime(cc)
+
+
+@as_function_node('phase_data')
+def CalcPhaseDiagram(phases: list, temperatures: list[float] | np.ndarray, mu_samples: int = 100):
+    """Calculate thermodynamic potentials and respective stable phases in a range of temperatures.
+
+    The chemical potential range is chosen automatically to cover the full concentration space.
+
+    Args:
+        phases: list of phases to consider
+        temperatures: temperature samples
+        mu_samples: number of samples in chemical potential space
+
+    Returns:
+        dataframe with phase data
+    """
+    import matplotlib.pyplot as plt
+    import landau
+
+    mus = guess_mu_range(phases, max(temperatures), mu_samples)
+    df = landau.calculate.calc_phase_diagram(phases, temperatures, mus, keep_unstable=False)
+    return df
+
+
+@as_function_node(use_cache=False)
+def PlotConcPhaseDiagram(phase_data, plot_samples: bool = False, plot_isolines: bool = False):
+    """Plot a concentration-temperature phase diagram.
+
+    phase_data should originate from CalcPhaseDiagram.
+
+    Args:
+        phases: list of phases to consider
+        plot_samples (bool): overlay points where phase data has been sampled
+        plot_isolines (bool): overlay lines of constance chemical potential
+    """
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import landau
+    landau.plot.plot_phase_diagram(phase_data, min_c_width=0.01)
+    if plot_samples:
+        sns.scatterplot(
+            data=phase_data,
+            x='c', y='T',
+            hue='phase',
+            legend=False,
+            s=1
+        )
+    if plot_isolines:
+        sns.lineplot(
+            data=phase_data.loc[np.isfinite(phase_data.mu)],
+            x='c', y='T',
+            hue='mu',
+            units='phase', estimator=None,
+            legend=False,
+        )
+    plt.xlabel("Temperature [K]")
+    plt.show()
+
+
+@as_function_node(use_cache=False)
+def PlotMuPhaseDiagram(phase_data):
+    """Plot a chemical potential-temperature phase diagram.
+
+    phase_data should originate from CalcPhaseDiagram.
+    """
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    sns.scatterplot(
+        data=phase_data.query('not border'),
+        x='mu', y='T',
+        hue='phase',
+        s=5,
+    )
+    sns.scatterplot(
+        data=phase_data.query('border'),
+        x='mu', y='T',
+        c='k',
+        s=5,
+    )
+    plt.xlabel("Temperature [K]")
+    plt.show()
+
+
+@as_function_node(use_cache=False)
+def PlotMuConcDiagram(phase_data):
+    """Plot dependence of concentration on chemical potential in stable phases.
+
+    phase_data should originate from CalcPhaseDiagram.
+    """
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    sns.lineplot(
+        data=phase_data.query('stable'),
+        x='mu', y='c',
+        style='phase',
+        hue='T',
+    )
+    plt.xlabel("Chemical Potential Difference [eV]")
+    plt.show()
+   
+
+@as_function_node(use_cache=False)
+def PlotPhiMuDiagram(phase_data):
+    """Plot dependence of semigrand-potential on chemical potential in stable phases.
+
+    phase_data should originate from CalcPhaseDiagram.
+    """
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    sns.lineplot(
+        data=phase_data.query('stable'),
+        x='mu', y='phi',
+        style='phase',
+        hue='T',
+    )
+    plt.xlabel("Semigrand Potential [eV/atom]")
+    plt.xlabel("Chemical Potential Difference [eV]")
+    plt.show()
