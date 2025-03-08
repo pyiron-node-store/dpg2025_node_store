@@ -35,6 +35,18 @@ def Append(xs: list, x) -> list:
         xs=[]
     return [*xs, x]
 
+
 @as_function_node("list")
 def List5(x1, x2=None, x3=None, x4=None, x5=None) -> list:
     return [x for x in (x1, x2, x3, x4, x5) if x is not None]
+
+
+@as_function_node("df")
+def ReadDataFrame(filename: str, compression: str | None = None):
+    import pandas as pd
+    return pd.read_pickle(filename, compression=compression)
+
+
+@as_function_node("item")
+def GetItem(obj, index: int | str):
+    return obj[index]
