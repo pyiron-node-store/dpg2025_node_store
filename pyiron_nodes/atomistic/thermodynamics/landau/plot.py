@@ -16,7 +16,7 @@ def TransitionTemperature(
     import seaborn as sns
     import matplotlib.pyplot as plt
     import numpy as np
-    from IPython import display
+    from IPython.display import display
     df = landau.calculate.calc_phase_diagram([phase1, phase2], np.linspace(Tmin, Tmax), dmu, keep_unstable=True)
     try:
         fm, Tm = df.query('border and T!=@Tmin and T!=@Tmax')[['f','T']].iloc[0].tolist()
@@ -33,8 +33,8 @@ def TransitionTemperature(
         plt.axvline(Tm, color='k', linestyle='dotted', alpha=.5)
         plt.scatter(Tm, fm, marker='o', c='k', zorder=10)
 
-        dfa =  np.ptp(df['f'].dropna())
-        dft =  np.ptp(df['T'].dropna())
+        dfa = np.ptp(df['f'].dropna())
+        dft = np.ptp(df['T'].dropna())
         plt.text(Tm + .05 * dft, fm + dfa * .1, rf"$T_m = {Tm:.0f}\,\mathrm{{K}}$", rotation='vertical', ha='center')
         plt.xlabel("Temperature [K]")
         plt.ylabel("Free Energy [eV/atom]")
