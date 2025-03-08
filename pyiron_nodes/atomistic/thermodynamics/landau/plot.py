@@ -106,6 +106,7 @@ def CalcPhaseDiagram(
         phases: list of phases to consider
         temperatures: temperature samples
         mu_samples: number of samples in chemical potential space
+        refine (bool): add additional sampling points along exact phase transitions
 
     Returns:
         dataframe with phase data
@@ -140,11 +141,17 @@ def PlotConcPhaseDiagram(
         phases: list of phases to consider
         plot_samples (bool): overlay points where phase data has been sampled
         plot_isolines (bool): overlay lines of constance chemical potential
+        plot_tielines (bool): add grey lines connecting triple points
+        linephase_width (float): phases that have a solubility less than this
+            will be plotted as a rectangle
     """
     import matplotlib.pyplot as plt
     import seaborn as sns
     import landau
-    landau.plot.plot_phase_diagram(phase_data, min_c_width=0.01)
+    landau.plot.plot_phase_diagram(
+            phase_data.drop('refined', errors='ignore', axis='columns'),
+            min_c_width=linephase_width,
+    )
     if plot_samples:
         sns.scatterplot(
             data=phase_data,
@@ -160,8 +167,14 @@ def PlotConcPhaseDiagram(
             hue='mu',
             units='phase', estimator=None,
             legend=False,
+            sort=False,
         )
-    plt.xlabel("Temperature [K]")
+    if plot_tielines and 'refined' in phase_data.columns:
+        # hasn't made it upstream yet
+        for T, dd in phase_data.query('refined=="delaunay-triple"').groupby('T'):
+            plt.plot(dd.c, [T]*3, c='k', alpha=.5, zorder=-10)
+    plt.xlabel("Concentration")
+    plt.ylabel("Temperature [K]")
     plt.show()
 
 
