@@ -45,12 +45,11 @@ def TransitionTemperature(
 def guess_mu_range(phases, Tmax, samples):
     """Guess chemical potential window from the ideal solution.
 
-    Find a chemical potential reference that equilibrates ~50% concentration in the stable phase.
-    Use mean of all phases to side step problems caused by line phases with concentration
-    dependence, these would always return their fixed concentration and confuse the optimizer.
-
-    With that reference simply apply the chemical potential in an ideal solution on an equispaced
-    concentration grid.
+    Searches numerically for chemical potentials which stabilize
+    concentrations close to 0 and 1 and then use the concentrations
+    encountered along the way to numerically invert the c(mu) mapping.
+    Using an even c grid with mu(c) then yields a decent sampling of mu
+    space so that the final phase diagram is described everywhere equally.
 
     Args:
         phases: list of phases to consider
@@ -60,19 +59,45 @@ def guess_mu_range(phases, Tmax, samples):
     Returns:
         array of chemical potentials that likely cover the whole concentration space
     """
+
     import landau
     import scipy.optimize as so
-    mu0, = so.fmin(
-        lambda mu: (0.5 - np.mean([p.concentration(Tmax, mu) for p in phases]))**2,
-        x0=0, 
-        disp=False
-    )
-    cc = np.linspace(0, 1, samples+2)[1:-1]
-    return mu0 - Tmax * landau.phases.Sprime(cc)
-
+    import scipy.interpolate as si
+    import numpy as np
+    # semigrand canonical "average" concentration
+    # use this to avoid discontinuities and be phase agnostic
+    def c(mu):
+        phis = np.array([p.semigrand_potential(Tmax, mu) for p in phases])
+        conc = np.array([p.concentration(Tmax, mu) for p in phases])
+        phis -= phis.min()
+        beta = 1/(Tmax*8.6e-5)
+        prob = np.exp(-beta*(phis - conc*mu))
+        prob /= prob.sum()
+        return (prob * conc).sum()
+    cc, mm = [], []
+    mu0, mu1 = 0, 0
+    while (ci := c(mu0)) > 0.001:
+        cc.append(ci)
+        mm.append(mu0)
+        mu0 -= 0.05
+    while (ci := c(mu1)) < 0.999:
+        cc.append(ci)
+        mm.append(mu1)
+        mu1 += 0.05
+    cc = np.array(cc)
+    mm = np.array(mm)
+    I = cc.argsort()
+    cc = cc[I]
+    mm = mm[I]
+    return si.interp1d(cc, mm)(np.linspace(min(cc), max(cc), samples))
 
 @as_function_node('phase_data')
-def CalcPhaseDiagram(phases: list, temperatures: list[float] | np.ndarray, mu_samples: int = 100):
+def CalcPhaseDiagram(
+        phases: list,
+        temperatures: list[float] | np.ndarray,
+        chemical_potentials: list[float] | np.ndarray | int = 100,
+        refine: bool = True
+):
     """Calculate thermodynamic potentials and respective stable phases in a range of temperatures.
 
     The chemical potential range is chosen automatically to cover the full concentration space.
@@ -88,13 +113,25 @@ def CalcPhaseDiagram(phases: list, temperatures: list[float] | np.ndarray, mu_sa
     import matplotlib.pyplot as plt
     import landau
 
-    mus = guess_mu_range(phases, max(temperatures), mu_samples)
-    df = landau.calculate.calc_phase_diagram(phases, temperatures, mus, keep_unstable=False)
+    if isinstance(chemical_potentials, int):
+        mus = guess_mu_range(phases, max(temperatures), chemical_potentials)
+    else:
+        mus = chemical_potentials
+    df = landau.calculate.calc_phase_diagram(
+            phases, np.asarray(temperatures), mus,
+            refine=refine, keep_unstable=False
+    )
     return df
 
 
 @as_function_node(use_cache=False)
-def PlotConcPhaseDiagram(phase_data, plot_samples: bool = False, plot_isolines: bool = False):
+def PlotConcPhaseDiagram(
+        phase_data,
+        plot_samples: bool = False,
+        plot_isolines: bool = False,
+        plot_tielines: bool = True,
+        linephase_width: float = 0.01,
+):
     """Plot a concentration-temperature phase diagram.
 
     phase_data should originate from CalcPhaseDiagram.
