@@ -186,25 +186,33 @@ def PlotMuPhaseDiagram(phase_data):
     """
     import seaborn as sns
     import matplotlib.pyplot as plt
+    border = None
+    if 'border' not in phase_data.columns:
+        body = phase_data.query('not border')
+    else:
+        border = phase_data.query('border')
+        body = phase_data.query('not border')
     sns.scatterplot(
-        data=phase_data.query('not border'),
+        data=body,
         x='mu', y='T',
         hue='phase',
         s=5,
     )
-    sns.scatterplot(
-        data=phase_data.query('border'),
-        x='mu', y='T',
-        c='k',
-        s=5,
-    )
-    plt.xlabel("Temperature [K]")
+    if border is not None:
+        sns.scatterplot(
+            data=border,
+            x='mu', y='T',
+            c='k',
+            s=5,
+        )
+    plt.xlabel("Chemical Potential Difference [eV]")
+    plt.ylabel("Temperature [K]")
     plt.show()
 
 
 @as_function_node(use_cache=False)
-def PlotMuConcDiagram(phase_data):
-    """Plot dependence of concentration on chemical potential in stable phases.
+def PlotIsotherms(phase_data):
+    """Plot concentration isotherms in stable phases.
 
     phase_data should originate from CalcPhaseDiagram.
     """
