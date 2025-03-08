@@ -234,6 +234,29 @@ def PlotPhiMuDiagram(phase_data):
         style='phase',
         hue='T',
     )
-    plt.xlabel("Semigrand Potential [eV/atom]")
     plt.xlabel("Chemical Potential Difference [eV]")
+    plt.ylabel("Semigrand Potential [eV/atom]")
     plt.show()
+
+
+@as_function_node(use_cache=False)
+def CheckTemperatureInterpolation(
+        phase: landau.phases.TemperatureDependentLinePhase,
+        Tmin: float | None = None, Tmax: float | None = None,
+):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    if Tmin is None:
+        Tmin = np.min(phase.temperatures) * 0.9
+    if Tmax is None:
+        Tmax = np.max(phase.temperatures) * 1.1
+    Ts = np.linspace(Tmin, Tmax, 50)
+    l, = plt.plot(Ts, phase.line_free_energy(Ts), label="interpolation")
+    # try to plot about 50 points
+    n = max(int(len(phase.temperatures) // 50), 1)
+    plt.scatter(
+            phase.temperatures[::n],
+            phase.free_energies[::n],
+            c=l.get_color(),
+            label="data",
+    )
