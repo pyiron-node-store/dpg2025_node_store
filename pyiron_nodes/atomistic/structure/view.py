@@ -6,37 +6,75 @@ import numpy as _np
 from typing import Iterable, Optional
 
 
-@as_function_node("plot")
+@as_function_node("plot", use_cache=False)
 def Plot3d(
     structure: _Atoms,
-    camera: str = "orthographic",
     particle_size: Optional[int | float] = 1.0,
-    select_atoms: Optional[_np.ndarray] = None,
-    view_plane: _np.ndarray = _np.array([0, 0, 1]),
-    distance_from_camera: Optional[int | float] = 1.0,
+    repeat: int = 1,
 ):
-    """Display atomistic structure (ase._Atoms) using nglview"""
+    """Display atomistic structure (ase.Atoms) using nglview"""
     from structuretoolkit import plot3d
+    from structuretoolkit.build import _repeat
 
-    return structure.plot3d(
-        # structure=structure,
-        camera=camera,
+    structure = _repeat(structure, repeat)
+
+    return plot3d(
+        structure=structure,
         particle_size=particle_size,
-        select_atoms=select_atoms,
-        view_plane=view_plane,
-        distance_from_camera=distance_from_camera,
     )
 
+def _get_crystal_system(num: int) -> str:
+    """Translate space group number to name of crystal system."""
+    if num in range(1, 3):
+        return "triclinic"
+    elif num in range(3, 16):
+        return "monoclinic"
+    elif num in range(16, 75):
+        return "orthorhombic"
+    elif num in range(75, 143):
+        return "tetragonal"
+    elif num in range(143, 168):
+        return "trigonal"
+    elif num in range(168, 195):
+        return "hexagonal"
+    elif num in range(195, 231):
+        return "cubic"
+    else:
+        return "invalid"
 
 @as_function_node(use_cache=False)
-def PlotSPG(structures: list[_Atoms]):
+def PlotSPG(structures: list[_Atoms], symprec: float = 1e-3):
     """Plot a histogram of space groups in input list."""
-    from structuretoolkit.analyse import get_symmetry
+    import numpy as np
     import matplotlib.pyplot as plt
-    spacegroups = []
+    from structuretoolkit.analyse import get_symmetry
+    space_groups = []
+    crystal_systems = []
     for structure in structures:
-        spacegroups.append(get_symmetry(structure).info['number'])
-    plt.hist(spacegroups)
+        sym = get_symmetry(structure)
+        space_groups.append(sym.info['number'])
+        crystal_systems.append(_get_crystal_system(space_groups[-1]))
+    plt.subplot(1, 2, 1)
+    plt.hist(space_groups, bins=230)
+    plt.xlabel("Space Group")
+    plt.ylabel("#Structures")
+
+    plt.subplot(1, 2, 2)
+    l, h = np.unique(crystal_systems, return_counts=True)
+    sort_key = {
+        "triclinic": 1,
+        "monoclinic": 3,
+        "orthorhombic": 16,
+        "tetragonal": 75,
+        "trigonal": 143,
+        "hexagonal": 168,
+        "cubic": 195,
+    }
+    I = np.argsort([sort_key[ll] for ll in l])
+    plt.bar(l[I], h[I])
+    plt.xlabel("Crystal System")
+    plt.ylabel("#Structures")
+    plt.xticks(rotation=35)
     plt.show()
 
 

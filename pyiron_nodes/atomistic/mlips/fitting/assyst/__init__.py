@@ -2,7 +2,6 @@ from pyiron_workflow import Workflow
 from pyiron_workflow.nodes.standard import Multiply
 
 from .structures import (
-        SpaceGroupInput,
         SpaceGroupSampling,
         ElementInput,
         StoichiometryTable,
@@ -16,8 +15,9 @@ from pyiron_nodes.atomistic.mlips.calculator.grace import Grace
 
 def make_assyst(name, *elements, delete_existing_savefiles=False):
     # TODO!
+    min_ion = 2
     max_ion = 4
-    max_structures = 200
+    max_structures = 50
 
     wf = Workflow(name, delete_existing_savefiles=delete_existing_savefiles)
     if wf.has_saved_content():
@@ -26,21 +26,28 @@ def make_assyst(name, *elements, delete_existing_savefiles=False):
     element_nodes = []
     if len(elements) > 0:
         e1, *elements = elements
-        stoi = ElementInput(e1, max_ion=max_ion)
-        setattr(wf, 'element_1', stoi)
+        stoi = ElementInput(e1, min_ion=min_ion, max_ion=max_ion)
+        setattr(wf, 'Element_1', stoi)
         element_nodes.append(stoi)
         for i, e in enumerate(elements):
-            en = ElementInput(e, max_ion=max_ion)
-            setattr(wf, f'element_{i+2}', en)
+            en = ElementInput(e, min_ion=min_ion, max_ion=max_ion)
+            setattr(wf, f'Element_{i+2}', en)
             element_nodes.append(en)
             stoi = Multiply(stoi, en)
+            setattr(wf, f'Multiply_{i+1}_{i+2}', stoi)
         if len(elements) > 0:
-            wf.stoichiometry = stoi
-
-        inp = SpaceGroupInput(stoichiometry=stoi, max_structures=max_structures)
+            wf.Multiply = stoi
+        spg = SpaceGroupSampling(
+                stoichiometry=stoi,
+                spacegroups=None,
+                max_atoms=len(element_nodes) * max_ion,
+                max_structures=max_structures
+        )
     else:
-        inp = SpaceGroupInput()
-    spg = SpaceGroupSampling(inp)
+        spg = SpaceGroupSampling(
+                max_atoms=max_ion,
+                max_structures=max_structures
+        )
     plotspg = PlotSPG(spg)
 
     calc_config = Grace()
@@ -75,30 +82,30 @@ def make_assyst(name, *elements, delete_existing_savefiles=False):
 
     savestructures = SaveStructures(combine_structures, "data/Structures_Everything")
 
-    wf.input = inp
-    wf.sampling = spg
-    wf.plotspg = plotspg
+    wf.SpaceGroupSampling = spg
+    wf.PlotSPG = plotspg
 
-    wf.calc_config = calc_config
-    wf.optimizer_settings = optimizer_settings
-    wf.volume_relax = volume_relax
-    wf.full_relax = full_relax
+    wf.Calculator = calc_config
+    wf.OptimizerSettings = optimizer_settings
+    wf.VolumeRelax = volume_relax
+    wf.FullRelax = full_relax
 
-    wf.rattle = rattle
-    wf.stretch = stretch
+    wf.Rattle = rattle
+    wf.Stretch = stretch
 
-    wf.combine_structures = combine_structures
-    wf.savestructures = savestructures
+    wf.CombineStructures = combine_structures
+    wf.SaveStructures = savestructures
 
-    wf.inputs_map = {
-        'input__elements': 'elements',
-        'input__max_atoms': 'max_atoms',
-        'input__spacegroups': 'spacegroups',
-        'input__min_dist': 'min_dist',
-        'calc_config__model': None,
-        'volume_relax__mode': None,
-        'full_relax__mode': None,
-    }
+    # wf.inputs_map = {
+    #     'input__elements': 'elements',
+    #     'input__max_atoms': 'max_atoms',
+    #     'input__spacegroups': 'spacegroups',
+    #     'input__min_dist': 'min_dist',
+    #     'Calculator__model': None,
+    #     'VolumeRelax__mode': None,
+    #     'FullRelax__mode': None,
+    #     'Stretch__samples': 'stretch_samples',
+    # }
     # wf.outputs_map = {
     #     'sampling__structures': 'crystals',
     #     'volume_relax__relaxed_structure': 'volmin',

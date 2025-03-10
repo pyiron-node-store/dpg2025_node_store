@@ -67,28 +67,26 @@ def ElementInput(
 def StoichiometryTable(stoichiometry: Stoichiometry) -> pd.DataFrame:
     return pd.DataFrame(stoichiometry.stoichiometry)
 
-@Workflow.wrap.as_dataclass_node
-@dataclass
-class SpaceGroupInput:
-    def __post_init__(self):
-        # if self.stoichiometry is None or len(self.stoichiometry) == 0:
-        #     self.stoichiometry = list(range(1, self.max_atoms + 1))
-        if self.spacegroups is None:
-            self.spacegroups = list(range(1,231))
+# @Workflow.wrap.as_dataclass_node
+# @dataclass
+# class SpaceGroupInput:
+#     def __post_init__(self):
+        # if self.spacegroups is None:
+        #     self.spacegroups = list(range(1,231))
 
-    # elements: list[str]
-    # stoichiometry: list[int] | list[tuple[int, ...]] | None = None
-    stoichiometry: Stoichiometry
-    max_atoms: int = 10
-    spacegroups: list[int] | None = None
+    # # elements: list[str]
+    # # stoichiometry: list[int] | list[tuple[int, ...]] | None = None
+    # stoichiometry: Stoichiometry
+    # max_atoms: int = 10
+    # spacegroups: list[int] | None = None
 
     # can be either a single cutoff distance or a dictionary mapping chemical
     # symbols to min *radii*; you need to half the value if you go from using a
     # float to a dict
-    min_dist: float | dict[str, float] | None = None
+    # min_dist: float | dict[str, float] | None = None
 
-    # FIXME: just to restrict number of structures during testing
-    max_structures: int = 20
+    # # FIXME: just to restrict number of structures during testing
+    # max_structures: int = 20
 
     # def get_stoichiometry(self) -> Generator[tuple[tuple[str, ...], tuple[int, ...]]]:
     #     """Yield pairs of str and int tuples."""
@@ -112,35 +110,50 @@ class SpaceGroupInput:
     #             ), f"min_dist cannot by of type {type(self.min_dist)}: {self.min_dist}!"
 
 @Workflow.wrap.as_function_node
-def SpaceGroupSampling(input: SpaceGroupInput.dataclass) -> list[Atoms]:
+def SpaceGroupSampling(
+        stoichiometry: Stoichiometry,
+        spacegroups: list[int] | tuple[int,...] | None = None,
+        max_atoms: int = 10,
+        max_structures: int | None = None,
+) -> list[Atoms]:
     from warnings import catch_warnings
     from structuretoolkit.build.random import pyxtal
     from tqdm.auto import tqdm
+    import math
+
+    if spacegroups is None:
+        spacegroups = list(range(1,231))
+    if max_structures is None:
+        max_structures = math.inf
 
     structures = []
     with catch_warnings(category=UserWarning, action='ignore'):
-        for stoich in (bar := tqdm(input.stoichiometry)):
+        for stoich in (bar := tqdm(stoichiometry)):
             elements, num_ions = zip(*stoich.items())
             stoich_str = "".join(f"{s}{n}" for s, n in zip(elements, num_ions))
             bar.set_description(stoich_str)
-            structures += [s['atoms'] for s in pyxtal(input.spacegroups, elements, num_ions)]
-            if len(structures) > input.max_structures:
-                structures = structures[:input.max_structures]
+            structures += [s['atoms'] for s in pyxtal(spacegroups, elements, num_ions)]
+            if len(structures) > max_structures:
+                structures = structures[:max_structures]
                 break
-        bar.close()
     return structures
 
 
 @Workflow.wrap.as_function_node
 def CombineStructures(
-        spacegroups: list[Atoms],
-        volume_relax: list[Atoms],
-        full_relax: list[Atoms],
-        rattle: list[Atoms],
-        stretch: list[Atoms],
+        spacegroups: list[Atoms] | None,
+        volume_relax: list[Atoms] | None,
+        full_relax: list[Atoms] | None,
+        rattle: list[Atoms] | None,
+        stretch: list[Atoms] | None,
 ) -> list[Atoms]:
     """Combine individual structure sets into a full training set."""
-    structures = set1 + set2 + set3 + set4 + set5
+    from functools import reduce
+    structures = [spacegroups, volume_relax, full_relax, rattle, stretch]
+    structures = reduce(list.__add__, (s or [] for s in structures), [])
+    if len(structures) == 0:
+        logging.warn("Either no inputs given or all inputs are empty. "
+                     "Returning the empty list!")
     return structures
 
 
