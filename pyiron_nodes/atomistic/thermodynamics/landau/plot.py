@@ -10,6 +10,7 @@ def TransitionTemperature(
         phase1, phase2,
         Tmin: int | float,
         Tmax: int | float,
+        # FIXME: lieber raus nehmen
         dmu: int | float | None = 0,
         plot: bool = True
 ) -> float:
@@ -71,7 +72,7 @@ def guess_mu_range(phases, Tmax, samples):
         conc = np.array([p.concentration(Tmax, mu) for p in phases])
         phis -= phis.min()
         beta = 1/(Tmax*8.6e-5)
-        prob = np.exp(-beta*(phis - conc*mu))
+        prob = np.exp(-beta*phis)
         prob /= prob.sum()
         return (prob * conc).sum()
     cc, mm = [], []
@@ -91,6 +92,7 @@ def guess_mu_range(phases, Tmax, samples):
     mm = mm[I]
     return si.interp1d(cc, mm)(np.linspace(min(cc), max(cc), samples))
 
+# Move to separate
 @as_function_node('phase_data')
 def CalcPhaseDiagram(
         phases: list,
@@ -132,6 +134,7 @@ def PlotConcPhaseDiagram(
         plot_isolines: bool = False,
         plot_tielines: bool = True,
         linephase_width: float = 0.01,
+        concavity: float | None = None,
 ):
     """Plot a concentration-temperature phase diagram.
 
@@ -144,6 +147,9 @@ def PlotConcPhaseDiagram(
         plot_tielines (bool): add grey lines connecting triple points
         linephase_width (float): phases that have a solubility less than this
             will be plotted as a rectangle
+        concavity (float, optional, range in [0, 1]): how aggressive to be when
+            fitting polyhedra to samples phase data; lower means more ragged
+            shapes, higher means smoother; 1 corresponds to convex hull of points
     """
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -151,6 +157,7 @@ def PlotConcPhaseDiagram(
     landau.plot.plot_phase_diagram(
             phase_data.drop('refined', errors='ignore', axis='columns'),
             min_c_width=linephase_width,
+            alpha=concavity or 0.1,
     )
     if plot_samples:
         sns.scatterplot(

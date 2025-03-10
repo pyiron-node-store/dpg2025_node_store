@@ -32,7 +32,6 @@ def make_phase(dd, temperature_parameters, concentration_parameters):
     name = dd.phase.iloc[0]
     # minus 2 for terminals
     # minus 1 to be not exactly interpolating
-    interp_params = min(len(dd)-2-1, concentration_parameters)
     sub = [landau.phases.TemperatureDependentLinePhase(
                 f'{row.phase}_{c:.03}', c, 
                 row.temperature, row.free_energy, 
@@ -41,14 +40,18 @@ def make_phase(dd, temperature_parameters, concentration_parameters):
     # only a single concentration
     if len(sub) == 1:
         return replace(sub[0], name=name)
-    # terminals are present
-    if len({0, 1}.intersection([s.line_concentration for s in sub]))==2:
-        if len(sub) == 2: # only terminals are present
-            return landau.phases.IdealSolution(name, *sub)
+    if concentration_parameters is not None:
+        interp_params = min(len(dd)-2-1, concentration_parameters)
+        # terminals are present
+        if len({0, 1}.intersection([s.line_concentration for s in sub]))==2:
+            if len(sub) == 2: # only terminals are present
+                return landau.phases.IdealSolution(name, *sub)
+            else:
+                return landau.phases.RegularSolution(name, sub, interp_params)
         else:
-            return landau.phases.RegularSolution(name, sub, interp_params)
+            return landau.phases.InterpolatingPhase(name, sub, interp_params, num_samples=1000)
     else:
-        return landau.phases.InterpolatingPhase(name, sub, interp_params, num_samples=1000)
+        return sub
 
 @as_function_node("phase_list", "phase_dict")
 def PhasesFromDataFrame(
@@ -57,6 +60,8 @@ def PhasesFromDataFrame(
         concentration_parameters: int | None = 1,
 ):
     """Convert a dataframe of free energies to list of phase objects.
+
+    Prints the names of all found phases.
 
     Args:
         dataframe: should contain columns
@@ -68,8 +73,10 @@ def PhasesFromDataFrame(
                     `free_energy`: corresponding free energies
         temperature_parameters (int): how many parameters to use when
                     interpolating free energies in temperature
-        concentration_parameters (int): how many parameters to use when
-                    interpolating free energies in concentration
+        concentration_parameters (int, optional): how many parameters to use
+                    when interpolating free energies in concentration; if not
+                    given output individual phases and change the name to
+                    include the concentration
 
     Returns:
         list of Phase objects
@@ -79,7 +86,8 @@ def PhasesFromDataFrame(
     phases = dataframe.groupby('phase')[dataframe.columns].apply(
             make_phase, include_groups=False,
             temperature_parameters=temperature_parameters,
-            concentration_parameters=concentration_parameters
+            concentration_parameters=concentration_parameters,
     )
-    display("Found phases:", *phases.index.tolist())
-    return phases.tolist(), phases.to_dict()
+    phases = {p.name: p for p in phases.explode()}
+    display("Found phases:", *phases.keys())
+    return list(phases.values()), phases
