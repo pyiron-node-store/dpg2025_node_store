@@ -46,6 +46,10 @@ def ReadDataFrame(filename: str, compression: str | None = None):
     import pandas as pd
     return pd.read_pickle(filename, compression=compression)
 
+@as_function_node("df")
+def ReadCSV(filename: str, header: list = [0, 1], decimal: str = ",", delimiter: str = ";"):
+    import pandas as pd
+    return pd.read_csv(filename, delimiter=delimiter, header=header, decimal=decimal)
 
 @as_function_node("item")
 def GetItem(obj, index: int | str):
