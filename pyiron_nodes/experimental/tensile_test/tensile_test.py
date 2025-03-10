@@ -1,4 +1,5 @@
 from pyiron_workflow import as_function_node, as_macro_node, as_dataclass_node
+import numpy as np
 
 @as_function_node
 def CovertLoadToStress(df, area: float):
@@ -16,7 +17,7 @@ def CovertLoadToStress(df, area: float):
     return stress, strain
 
 @as_function_node
-def CalculateYoungsModulus(stress: list, strain: list, strain_cutoff: list =0.2) -> float:
+def CalculateYoungsModulus(stress: np.ndarray, strain: np.ndarray, strain_cutoff: float =0.2) -> float:
     """
     Calculate the Youngs modulus with a linear fit
     """
