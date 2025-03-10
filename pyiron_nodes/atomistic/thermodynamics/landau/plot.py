@@ -10,121 +10,45 @@ def TransitionTemperature(
         phase1, phase2,
         Tmin: int | float,
         Tmax: int | float,
-        # FIXME: lieber raus nehmen
-        dmu: int | float | None = 0,
-        plot: bool = True
 ) -> float:
+    """Plot free energies of two phases and find their intersection, i.e. the transition temperature.
+
+    Assumes that both phases are of the same concentration, otherwise the results will be off, as it takes the chemical
+    potential difference to be zero.
+
+    Args:
+        phase1, phase2 (landau.phases.Phase): the two phases to plot
+        Tmin (float): minimum temperature
+        Tmax (float): maximum temperature
+
+    Returns:
+        float: transition temperature if found, else NaN
+    """
     import seaborn as sns
     import matplotlib.pyplot as plt
     import numpy as np
-    from IPython.display import display
-    df = landau.calculate.calc_phase_diagram([phase1, phase2], np.linspace(Tmin, Tmax), dmu, keep_unstable=True)
+    df = landau.calculate.calc_phase_diagram([phase1, phase2], np.linspace(Tmin, Tmax), mu=0.0, keep_unstable=True)
     try:
         fm, Tm = df.query('border and T!=@Tmin and T!=@Tmax')[['f','T']].iloc[0].tolist()
     except IndexError:
-        display("Transition Point not found!")
+        print("Transition Point not found!")
         fm, Tm = np.nan, np.nan
-    if plot:
-        sns.lineplot(
-            data=df,
-            x='T', y='f',
-            hue='phase',
-            style='stable', style_order=[True, False],
-        )
-        plt.axvline(Tm, color='k', linestyle='dotted', alpha=.5)
-        plt.scatter(Tm, fm, marker='o', c='k', zorder=10)
-
-        dfa = np.ptp(df['f'].dropna())
-        dft = np.ptp(df['T'].dropna())
-        plt.text(Tm + .05 * dft, fm + dfa * .1, rf"$T_m = {Tm:.0f}\,\mathrm{{K}}$", rotation='vertical', ha='center')
-        plt.xlabel("Temperature [K]")
-        plt.ylabel("Free Energy [eV/atom]")
-        plt.show()
-    return Tm
-
-
-def guess_mu_range(phases, Tmax, samples):
-    """Guess chemical potential window from the ideal solution.
-
-    Searches numerically for chemical potentials which stabilize
-    concentrations close to 0 and 1 and then use the concentrations
-    encountered along the way to numerically invert the c(mu) mapping.
-    Using an even c grid with mu(c) then yields a decent sampling of mu
-    space so that the final phase diagram is described everywhere equally.
-
-    Args:
-        phases: list of phases to consider
-        Tmax: temperature at which to estimate 
-        samples: how many mu samples to return
-
-    Returns:
-        array of chemical potentials that likely cover the whole concentration space
-    """
-
-    import landau
-    import scipy.optimize as so
-    import scipy.interpolate as si
-    import numpy as np
-    # semigrand canonical "average" concentration
-    # use this to avoid discontinuities and be phase agnostic
-    def c(mu):
-        phis = np.array([p.semigrand_potential(Tmax, mu) for p in phases])
-        conc = np.array([p.concentration(Tmax, mu) for p in phases])
-        phis -= phis.min()
-        beta = 1/(Tmax*8.6e-5)
-        prob = np.exp(-beta*phis)
-        prob /= prob.sum()
-        return (prob * conc).sum()
-    cc, mm = [], []
-    mu0, mu1 = 0, 0
-    while (ci := c(mu0)) > 0.001:
-        cc.append(ci)
-        mm.append(mu0)
-        mu0 -= 0.05
-    while (ci := c(mu1)) < 0.999:
-        cc.append(ci)
-        mm.append(mu1)
-        mu1 += 0.05
-    cc = np.array(cc)
-    mm = np.array(mm)
-    I = cc.argsort()
-    cc = cc[I]
-    mm = mm[I]
-    return si.interp1d(cc, mm)(np.linspace(min(cc), max(cc), samples))
-
-# Move to separate
-@as_function_node('phase_data')
-def CalcPhaseDiagram(
-        phases: list,
-        temperatures: list[float] | np.ndarray,
-        chemical_potentials: list[float] | np.ndarray | int = 100,
-        refine: bool = True
-):
-    """Calculate thermodynamic potentials and respective stable phases in a range of temperatures.
-
-    The chemical potential range is chosen automatically to cover the full concentration space.
-
-    Args:
-        phases: list of phases to consider
-        temperatures: temperature samples
-        mu_samples: number of samples in chemical potential space
-        refine (bool): add additional sampling points along exact phase transitions
-
-    Returns:
-        dataframe with phase data
-    """
-    import matplotlib.pyplot as plt
-    import landau
-
-    if isinstance(chemical_potentials, int):
-        mus = guess_mu_range(phases, max(temperatures), chemical_potentials)
-    else:
-        mus = chemical_potentials
-    df = landau.calculate.calc_phase_diagram(
-            phases, np.asarray(temperatures), mus,
-            refine=refine, keep_unstable=False
+    sns.lineplot(
+        data=df,
+        x='T', y='f',
+        hue='phase',
+        style='stable', style_order=[True, False],
     )
-    return df
+    plt.axvline(Tm, color='k', linestyle='dotted', alpha=.5)
+    plt.scatter(Tm, fm, marker='o', c='k', zorder=10)
+
+    dfa = np.ptp(df['f'].dropna())
+    dft = np.ptp(df['T'].dropna())
+    plt.text(Tm + .05 * dft, fm + dfa * .1, rf"$T_m = {Tm:.0f}\,\mathrm{{K}}$", rotation='vertical', ha='center')
+    plt.xlabel("Temperature [K]")
+    plt.ylabel("Free Energy [eV/atom]")
+    plt.show()
+    return Tm
 
 
 @as_function_node(use_cache=False)
@@ -190,6 +114,7 @@ def PlotMuPhaseDiagram(phase_data):
     """Plot a chemical potential-temperature phase diagram.
 
     phase_data should originate from CalcPhaseDiagram.
+    Phase boundaries are plotted in black.
     """
     import seaborn as sns
     import matplotlib.pyplot as plt
@@ -233,7 +158,7 @@ def PlotIsotherms(phase_data):
     )
     plt.xlabel("Chemical Potential Difference [eV]")
     plt.show()
-   
+
 
 @as_function_node(use_cache=False)
 def PlotPhiMuDiagram(phase_data):
@@ -259,6 +184,12 @@ def CheckTemperatureInterpolation(
         phase: landau.phases.TemperatureDependentLinePhase,
         Tmin: float | None = None, Tmax: float | None = None,
 ):
+    """Plot the free energy interpolation against data points.
+
+    Args:
+        phase (landau.phases.TemperatureDependentLinePhase): phase to check
+        Tmin, Tmax (floats): temperature window to check
+    """
     import numpy as np
     import matplotlib.pyplot as plt
     if Tmin is None:

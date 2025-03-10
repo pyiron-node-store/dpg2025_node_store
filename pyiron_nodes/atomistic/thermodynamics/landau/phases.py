@@ -82,12 +82,11 @@ def PhasesFromDataFrame(
         list of Phase objects
         dict of Phase objects, where the dict keys are the names of the phases
     """
-    from IPython.display import display
     phases = dataframe.groupby('phase')[dataframe.columns].apply(
             make_phase, include_groups=False,
             temperature_parameters=temperature_parameters,
             concentration_parameters=concentration_parameters,
     )
     phases = {p.name: p for p in phases.explode()}
-    display("Found phases:", *phases.keys())
+    print("Found phases:", *phases.keys(), sep='\n')
     return list(phases.values()), phases
