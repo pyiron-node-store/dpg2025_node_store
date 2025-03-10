@@ -54,3 +54,18 @@ def ReadCSV(filename: str, header: list = [0, 1], decimal: str = ",", delimiter:
 @as_function_node("item")
 def GetItem(obj, index: int | str):
     return obj[index]
+
+
+@as_function_node("product")
+def Multiply(x, y):
+    return x * y
+
+
+@as_function_node("sum")
+def Add(x, y):
+    return x + y
+
+
+@as_function_node("or")
+def Or(x, y):
+    return x | y

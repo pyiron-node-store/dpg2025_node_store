@@ -3,7 +3,7 @@ from collections.abc import Generator, Sequence
 from numbers import Integral
 from itertools import product
 
-from pyiron_workflow import Workflow
+from pyiron_workflow import Workflow, as_function_node
 
 import pandas as pd
 from ase import Atoms
@@ -53,7 +53,7 @@ class Stoichiometry(Sequence):
         return len(self.stoichiometry)
 
 
-@Workflow.wrap.as_function_node
+@as_function_node
 def ElementInput(
         element: str,
         min_ion: int =  1,
@@ -63,53 +63,29 @@ def ElementInput(
     stoichiometry = Stoichiometry(tuple({element: i} for i in range(min_ion, max_ion + 1, step_ion)))
     return stoichiometry
 
-@Workflow.wrap.as_function_node("df")
+@as_function_node("filtered")
+def FilterSize(
+        stoichiometry: Stoichiometry,
+        min: int | None = 0,
+        max: int | None = None,
+):
+    import math
+    if max is None:
+        max = math.inf
+    return Stoichiometry(tuple(s for s in stoichiometry
+                                if min <= sum(s.values()) <= max ))
+
+@as_function_node#("df")
 def StoichiometryTable(stoichiometry: Stoichiometry) -> pd.DataFrame:
-    return pd.DataFrame(stoichiometry.stoichiometry)
+    import pandas as pd
+    from IPython.display import display
+    df = pd.DataFrame(stoichiometry.stoichiometry)
+    with pd.option_context("display.max_rows",    10000000,  # inf not allowed
+                           "display.max_columns", 10000000): # just pick large
+        display(df)
+    # return df
 
-# @Workflow.wrap.as_dataclass_node
-# @dataclass
-# class SpaceGroupInput:
-#     def __post_init__(self):
-        # if self.spacegroups is None:
-        #     self.spacegroups = list(range(1,231))
-
-    # # elements: list[str]
-    # # stoichiometry: list[int] | list[tuple[int, ...]] | None = None
-    # stoichiometry: Stoichiometry
-    # max_atoms: int = 10
-    # spacegroups: list[int] | None = None
-
-    # can be either a single cutoff distance or a dictionary mapping chemical
-    # symbols to min *radii*; you need to half the value if you go from using a
-    # float to a dict
-    # min_dist: float | dict[str, float] | None = None
-
-    # # FIXME: just to restrict number of structures during testing
-    # max_structures: int = 20
-
-    # def get_stoichiometry(self) -> Generator[tuple[tuple[str, ...], tuple[int, ...]]]:
-    #     """Yield pairs of str and int tuples."""
-    #     if isinstance(self.stoichiometry[0], Integral):
-    #         ions = filter(lambda x: 0 < sum(x) <= self.max_atoms, product(self.stoichiometry, repeat=len(self.elements)))
-    #     else:
-    #         ions = iter(self.stoichiometry)
-    #     for num_ions in ions:
-    #         elements, num_ions = zip(*((el, ni) for el, ni in zip(self.elements, num_ions) if ni > 0))
-    #         yield elements, num_ions
-
-    # def get_distance_filter(self):
-    #     match self.min_dist:
-    #         case float():
-    #             return DistanceFilter({el: self.min_dist / 2 for el in self.elements})
-    #         case dict():
-    #             return DistanceFilter(self.min_dist)
-    #         case _:
-    #             assert (
-    #                 False
-    #             ), f"min_dist cannot by of type {type(self.min_dist)}: {self.min_dist}!"
-
-@Workflow.wrap.as_function_node
+@as_function_node
 def SpaceGroupSampling(
         stoichiometry: Stoichiometry,
         spacegroups: list[int] | tuple[int,...] | None = None,
@@ -139,7 +115,7 @@ def SpaceGroupSampling(
     return structures
 
 
-@Workflow.wrap.as_function_node
+@as_function_node
 def CombineStructures(
         spacegroups: list[Atoms] | None,
         volume_relax: list[Atoms] | None,
@@ -157,7 +133,7 @@ def CombineStructures(
     return structures
 
 
-@Workflow.wrap.as_function_node
+@as_function_node
 def SaveStructures(
         structures: list[Atoms],
         filename: str

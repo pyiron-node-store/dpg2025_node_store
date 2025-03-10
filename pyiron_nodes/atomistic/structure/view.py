@@ -75,6 +75,7 @@ def PlotSPG(structures: list[_Atoms], symprec: float = 1e-3):
     plt.xlabel("Crystal System")
     plt.ylabel("#Structures")
     plt.xticks(rotation=35)
+    plt.tight_layout()
     plt.show()
 
 

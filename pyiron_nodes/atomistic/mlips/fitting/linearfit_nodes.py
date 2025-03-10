@@ -1,4 +1,4 @@
-from pyiron_workflow import Workflow
+from pyiron_workflow import Workflow, as_function_node
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass, field, asdict
@@ -53,7 +53,7 @@ class PotentialConfig:
             self.bonds = Bonds()
         if not isinstance(self.functions, Functions):
             self.functions = Functions()
-    
+
     def to_dict(self):
         def remove_none(d):
             """Recursively remove None values from dictionaries."""
@@ -66,7 +66,7 @@ class PotentialConfig:
 
         return remove_none(asdict(self))
 
-@Workflow.wrap.as_function_node
+@as_function_node
 def ReadPickledDatasetAsDataframe(file_path:str = '', compression:str | None = 'gzip'):
 
     from ase.atoms import Atoms as aseAtoms
@@ -83,29 +83,29 @@ def ReadPickledDatasetAsDataframe(file_path:str = '', compression:str | None = '
         raise ValueError(
             "DataFrame should contain 'atoms' or 'ase_atoms' (ASE atoms) columns"
         )
-    
+
     # NUMBER OF ATOMS check
     if "NUMBER_OF_ATOMS" not in df.columns and "number_of_atoms" in df.columns:
         df.rename(columns={"number_of_atoms": "NUMBER_OF_ATOMS"}, inplace=True)
-    
+
     df["NUMBER_OF_ATOMS"] = df["NUMBER_OF_ATOMS"].astype(int)
 
     # energy corrected check
     if "energy_corrected" not in df.columns and "energy" in df.columns:
         df.rename(columns={"energy": "energy_corrected"}, inplace=True)
-        
+
     if "pbc" not in df.columns:
         df["pbc"] = df["ase_atoms"].map(lambda atoms: np.all(atoms.pbc))
-    
+
     return df
 
 
-@Workflow.wrap.as_function_node
+@as_function_node
 def ParameterizePotentialConfig(
     number_of_functions: int | None = 10,
     rcut: float | int = 7.0
     ):
-    
+
     potential_config = PotentialConfig()
 
     potential_config.bonds.ALL.rcut = rcut
@@ -113,7 +113,7 @@ def ParameterizePotentialConfig(
 
     return potential_config
 
-@Workflow.wrap.as_function_node
+@as_function_node
 def SplitTrainingAndTesting(data_df:pd.DataFrame, training_frac:float | int = 0.5, random_state : int = 42):
     '''
     Splits the filtered dataframe into training and testing sets based on a fraction of the dataset
@@ -129,7 +129,7 @@ def SplitTrainingAndTesting(data_df:pd.DataFrame, training_frac:float | int = 0.
     '''
     if isinstance(training_frac, float):
         training_frac = np.abs(training_frac)
-    
+
     if training_frac > 1:
         print("Can't have the training dataset more than 100 \% of the dataset\n\
             Setting the value to 100%")
@@ -143,13 +143,13 @@ def SplitTrainingAndTesting(data_df:pd.DataFrame, training_frac:float | int = 0.
     return df_training, df_testing
 
 
-@Workflow.wrap.as_function_node
+@as_function_node
 def RunLinearFit(potential_config, df_train: pd.DataFrame, df_test: pd.DataFrame, verbose: bool = False):
 
     from pyace.linearacefit import LinearACEFit, LinearACEDataset
     from pyace import create_multispecies_basis_config
     import time
-    
+
     from pyiron_snippets.logger import logger
     logger.setLevel(30)
 
@@ -158,11 +158,11 @@ def RunLinearFit(potential_config, df_train: pd.DataFrame, df_test: pd.DataFrame
         elements_set.update(at.get_chemical_symbols())
     for at in df_test["ase_atoms"]:
         elements_set.update(at.get_chemical_symbols())
-    
+
     elements = sorted(elements_set)
     potential_config.elements = elements
     potential_config_dict = potential_config.to_dict()
-    
+
     bconf = create_multispecies_basis_config(potential_config_dict)
     t0 = time.time()
 
@@ -179,7 +179,7 @@ def RunLinearFit(potential_config, df_train: pd.DataFrame, df_test: pd.DataFrame
 
     linear_fit = LinearACEFit(train_dataset= train_ds)
     linear_fit.fit()
-    
+
     t1 = time.time()
     total_time = t1-t0
     print(f"Fitting Done in {total_time:.1f} seconds.")
@@ -202,20 +202,20 @@ def RunLinearFit(potential_config, df_train: pd.DataFrame, df_test: pd.DataFrame
     basis = linear_fit.get_bbasis()
     return basis
 
-@Workflow.wrap.as_function_node
+@as_function_node
 def SavePotential(basis, filename:str = ""):
     import os
-    
+
     if filename == "":
         filename = f"{'_'.join(basis.elements_name)}_linear_potential"
         folder_name = "Linear_ace_potentials"
     else:
         folder_name = os.path.dirname(filename)
         filename = os.path.basename(filename)
-    
+
     folder_name = "Linear_ace_potentials"
     os.makedirs(folder_name, exist_ok=True)
-    
+
     current_path = os.getcwd()
     folder_path = current_path + '/' + folder_name
     # Saving yaml and yace files
@@ -224,10 +224,10 @@ def SavePotential(basis, filename:str = ""):
     yace_file_path = f"{folder_path}/{filename}.yace"
     basis.save(f"{folder_path}/{filename}.yaml")
     basis.to_ACECTildeBasisSet().save_yaml(yace_file_path)
-    
+
     return basis, yace_file_path
 
-@Workflow.wrap.as_function_node
+@as_function_node
 def PredictEnergiesAndForces(basis, df_train: pd.DataFrame, df_test: pd.DataFrame):
 
     from pyace import PyACECalculator
@@ -256,7 +256,7 @@ def PredictEnergiesAndForces(basis, df_train: pd.DataFrame, df_test: pd.DataFram
     if df_test.empty is False:
 
         testing_structures = df_test.ase_atoms
-        
+
         # Reference data
         testing_number_of_atoms = df_test.NUMBER_OF_ATOMS.to_numpy()
         testing_energies = df_test.energy_corrected.to_numpy()
@@ -276,7 +276,7 @@ def PredictEnergiesAndForces(basis, df_train: pd.DataFrame, df_test: pd.DataFram
 
 def _get_predicted_energies_forces(ace, structures, data_type:str):
     from tqdm import tqdm
-    
+
     forces = []
     energies = []
 
@@ -306,24 +306,24 @@ def _calc_rmse(array_1,array_2,rmse_in_milli:bool = True):
         return rmse
 
 def make_linearfit(
-    workflow_name:str, 
-    delete_existing_savefiles = False, 
+    workflow_name:str,
+    delete_existing_savefiles = False,
     file_path:str = "mgca.pckl.tgz",
     compression:str | None = None,
     training_frac:float | int = 0.5,
     number_of_functions_per_element:int | None = 10,
     rcut : float | int = 6.0
     ):
-    
+
     wf = Workflow(workflow_name, delete_existing_savefiles=delete_existing_savefiles)
-    if wf.has_saved_content():  
+    if wf.has_saved_content():
         return wf
-    
+
     # Workflow connections
     wf.load_dataset = ReadPickledDatasetAsDataframe(file_path = file_path, compression = compression)
-    wf.split_dataset = SplitTrainingAndTesting(data_df = wf.load_dataset.outputs.df, 
+    wf.split_dataset = SplitTrainingAndTesting(data_df = wf.load_dataset.outputs.df,
     training_frac = training_frac)
-    wf.parameterize_potential = ParameterizePotentialConfig(number_of_functions = number_of_functions_per_element, 
+    wf.parameterize_potential = ParameterizePotentialConfig(number_of_functions = number_of_functions_per_element,
     rcut = rcut)
     wf.run_linear_fit = RunLinearFit(potential_config = wf.parameterize_potential,
                                                     df_train = wf.split_dataset.outputs.df_training,
@@ -352,9 +352,9 @@ def make_linearfit(
 ########################## PLOTTING NODES ##########################
 
 # HISTOGRAM FOR ENERGY DISTRIBUTION
-@Workflow.wrap.as_function_node(use_cache = False)
+@as_function_node(use_cache = False)
 def PlotEnergyHistogram(df: pd.DataFrame, bins: int = 100, log_scale:bool = True):
-    
+
     # Calculate energy_per_atom
     df['energy_per_atom'] = df['energy_corrected']/ df['NUMBER_OF_ATOMS']
 
@@ -365,9 +365,9 @@ def PlotEnergyHistogram(df: pd.DataFrame, bins: int = 100, log_scale:bool = True
     plt.show()
 
 # HISTOGRAM FOR FORCE DISTRIBUTION
-@Workflow.wrap.as_function_node(use_cache = False)
+@as_function_node(use_cache = False)
 def PlotForcesHistogram(df: pd.DataFrame, bins: int = 100, log_scale:bool = True):
-    
+
     array = np.concatenate(df.forces.values).flatten()
 
     fig, axe = plt.subplots()
@@ -377,7 +377,7 @@ def PlotForcesHistogram(df: pd.DataFrame, bins: int = 100, log_scale:bool = True
     axe.set_xlabel(r"Force (eV/$\mathrm{\AA}$)")
     plt.show()
 
-@Workflow.wrap.as_function_node(use_cache = False)
+@as_function_node(use_cache = False)
 def PlotEnergyFittingCurve(data_dict: dict):
 
     fig, axe = plt.subplots()
@@ -385,12 +385,12 @@ def PlotEnergyFittingCurve(data_dict: dict):
 
     lims = [data_dict['reference_training_epa'].min(), data_dict['reference_training_epa'].max()]
     axe.plot(lims, lims, ls = '--', color = 'C0')
-    
+
     if 'reference_testing_epa' in data_dict.keys():
         rmse_testing = _calc_rmse(data_dict['reference_testing_epa'], data_dict[f'predicted_testing_epa'])
         axe.scatter(data_dict['reference_testing_epa'], data_dict['predicted_testing_epa'],
             color = 'black', s = 30, marker = '+', label = f'Testing RMSE = {rmse_testing:.2f} (meV/atom)')
-    
+
     rmse_training = _calc_rmse(data_dict['reference_training_epa'], data_dict['predicted_training_epa'])
     axe.scatter(data_dict['reference_training_epa'], data_dict['predicted_training_epa'],
         color = 'C0', s=30, label = f'Training RMSE = {rmse_training:.2f} (meV/atom)')
@@ -402,19 +402,19 @@ def PlotEnergyFittingCurve(data_dict: dict):
     plt.show()
 
 
-@Workflow.wrap.as_function_node(use_cache = False)
+@as_function_node(use_cache = False)
 def PlotForcesFittingCurve(data_dict: dict):
 
     fig, axe = plt.subplots()
 
     lims = [data_dict['reference_training_fpa'].min(), data_dict['reference_training_fpa'].max()]
     axe.plot(lims, lims, ls = '--', color = f'C1')
-    
+
     if 'reference_testing_epa' in data_dict.keys():
         rmse_testing = _calc_rmse(data_dict['reference_testing_fpa'], data_dict['predicted_testing_fpa'])
         axe.scatter(data_dict['reference_testing_fpa'], data_dict['predicted_testing_fpa'],
             color = 'black', s = 30, marker = '+', label = f'Testing RMSE = {rmse_testing:.2f} (meV/$\AA$)')
-    
+
     rmse_training = _calc_rmse(data_dict['reference_training_fpa'], data_dict['predicted_training_fpa'])
     axe.scatter(data_dict['reference_training_fpa'], data_dict['predicted_training_fpa'],
         color = 'C1', s=30, label = f'Training RMSE = {rmse_training:.2f} (meV/$\AA$)')
@@ -424,5 +424,3 @@ def PlotForcesFittingCurve(data_dict: dict):
     axe.set_title('Predicted Force Vs Reference Force')
     axe.legend()
     plt.show()
-
-

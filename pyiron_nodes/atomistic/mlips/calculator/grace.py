@@ -8,7 +8,7 @@ from ._generic import AseCalculatorConfig
 @dataclass(frozen=True, eq=True)
 class Grace(AseCalculatorConfig):
     """Universal Graph Atomic Cluster Expansion models."""
-    model: str = "GRACE-1L-OAM_2Feb25"
+    model: str = "GRACE-FS-OAM"
 
     @lru_cache(maxsize=1)
     def get_calculator(self, use_symmetry=True):
