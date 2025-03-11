@@ -250,11 +250,12 @@ def _prepare_input(inp, potential, structure, mode='fe', reference_phase='solid'
     calc = Calculation(**inpdict)
     return calc
 
-def _run_cleanup(simfolder, lattice):
+def _run_cleanup(simfolder, lattice, delete_folder=False):
     import shutil
     import os
     os.remove(lattice)
-    #shutil.rmtree('calphy')
+    if delete_folder:
+        shutil.rmtree(simfolder)
 
 @as_function_node('free_energy')
 def SolidFreeEnergy(inp, structure: Atoms, potential: str) -> float:
@@ -397,19 +398,19 @@ def PlotFreeEnergy(temperature: np.ndarray, free_energy: np.ndarray):
     return figure
 
 @as_function_node('phase_transition_temperature')
-def CalculatePhaseTransformationTemperature(t1: np.ndarray, f1: np.ndarray, t2: np.ndarray, f2: np.ndarray, fit_order: int = 4, plot: bool =True) -> float:
+def CalcPhaseTransformationTemp(temp_A: np.ndarray, fe_A: np.ndarray, temp_B: np.ndarray, fe_B: np.ndarray, fit_order: int = 4, plot: bool =True) -> float:
     """
     Calculate the phase transformation temperature from free energy data.
 
     Parameters:
     -----------
-    t1: np.ndarray
+    temp_A: np.ndarray
         Temperature array for phase 1.
-    f1: np.ndarray
+    fe_A: np.ndarray
         Free energy array for phase 1.
-    t2: np.ndarray
+    temp_B: np.ndarray
         Temperature array for phase 2.
-    f2: np.ndarray
+    fe_B: np.ndarray
         Free energy array for phase 2.
     fit_order: int
         Order of the polynomial fit.
@@ -422,12 +423,13 @@ def CalculatePhaseTransformationTemperature(t1: np.ndarray, f1: np.ndarray, t2: 
         Phase transformation temperature
     """
     import matplotlib.pyplot as plt
+    import warnings
 
     #do some fitting to determine temps
-    t1min = np.min(t1)
-    t2min = np.min(t2)
-    t1max = np.max(t1)
-    t2max = np.max(t2)
+    t1min = np.min(temp_A)
+    t2min = np.min(temp_B)
+    t1max = np.max(temp_A)
+    t2max = np.max(temp_B)
 
     tmin = np.min([t1min, t2min])
     tmax = np.max([t1max, t2max])
@@ -439,8 +441,8 @@ def CalculatePhaseTransformationTemperature(t1: np.ndarray, f1: np.ndarray, t2: 
         warnings.warn(f'free energy is being extrapolated!')
 
     #now fit
-    f1fit = np.polyfit(t1, f1, fit_order)
-    f2fit = np.polyfit(t2, f2, fit_order)
+    f1fit = np.polyfit(temp_A, fe_A, fit_order)
+    f2fit = np.polyfit(temp_B, fe_B, fit_order)
 
     #reevaluate over the new range
     fit_t = np.arange(tmin, tmax+1, 1)
@@ -464,10 +466,10 @@ def CalculatePhaseTransformationTemperature(t1: np.ndarray, f1: np.ndarray, t2: 
         c2lo = '#90caf9'
         c2hi = '#0d47a1'
 
-        plt.plot(fit_t, fit_f1, color=c1lo, label=f'data1 fit')
-        plt.plot(fit_t, fit_f2, color=c2lo, label=f'data2 fit')
-        plt.plot(t1, f1, color=c1hi, label='data1', ls='dashed')
-        plt.plot(t2, f2, color=c2hi, label='data2', ls='dashed')
+        plt.plot(fit_t, fit_f1, color=c1lo, label=f'phase A fit')
+        plt.plot(fit_t, fit_f2, color=c2lo, label=f'phase B fit')
+        plt.plot(temp_A, fe_A, color=c1hi, label='phase A', ls='dashed')
+        plt.plot(temp_B, fe_B, color=c2hi, label='phase B', ls='dashed')
         plt.axvline(transition_temp, ls='dashed', c='#37474f')
         plt.ylabel('Free energy (eV/atom)')
         plt.xlabel('Temperature (K)')
