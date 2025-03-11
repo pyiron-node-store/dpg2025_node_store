@@ -275,7 +275,11 @@ def PredictEnergiesAndForces(basis, df_train: pd.DataFrame, df_test: pd.DataFram
     return data_dict
 
 def _get_predicted_energies_forces(ace, structures, data_type:str):
+<<<<<<< HEAD
     from tqdm import tqdm
+=======
+    from tqdm.auto import tqdm
+>>>>>>> 0962c00 (Remove empty spaces; use tqdm.auto; read from data/)
 
     forces = []
     energies = []
@@ -308,7 +312,7 @@ def _calc_rmse(array_1,array_2,rmse_in_milli:bool = True):
 def make_linearfit(
     workflow_name:str,
     delete_existing_savefiles = False,
-    file_path:str = "mgca.pckl.tgz",
+    file_path:str = "data/mgca.pckl.tgz",
     compression:str | None = None,
     training_frac:float | int = 0.5,
     number_of_functions_per_element:int | None = 10,
@@ -330,7 +334,7 @@ def make_linearfit(
                                                     df_test=wf.split_dataset.outputs.df_testing,
                                                     verbose = False)
     wf.save_potential = SavePotential(basis = wf.run_linear_fit.outputs.basis)
-    wf.predict_energies_forces = PredictEnergiesAndForces(basis = wf.save_potential.outputs.basis,
+    wf.predict_energies_forces = PredictEnergiesAndForces(basis = wf.run_linear_fit.outputs.basis,
     df_train = wf.split_dataset.outputs.df_training, df_test = wf.split_dataset.outputs.df_testing)
 
     # Input mapping
