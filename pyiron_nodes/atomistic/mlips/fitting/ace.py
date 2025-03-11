@@ -71,6 +71,7 @@ class PotentialConfig:
 
         return remove_none(asdict(self))
 
+
 @as_function_node
 def ReadPickledDatasetAsDataframe(
     file_path: str = "", compression: str | None = "gzip"
@@ -116,6 +117,7 @@ def ParameterizePotentialConfig(
     potential_config.functions.number_of_functions_per_element = number_of_functions
 
     return potential_config
+
 
 @as_function_node
 def SplitTrainingAndTesting(
@@ -402,7 +404,6 @@ def PlotEnergyHistogram(df: pd.DataFrame, bins: int = 100, log_scale: bool = Tru
 
 
 # HISTOGRAM FOR FORCE DISTRIBUTION
-@Workflow.wrap.as_function_node(use_cache=False)
 @as_function_node(use_cache=False)
 def PlotForcesHistogram(df: pd.DataFrame, bins: int = 100, log_scale: bool = True):
     array = np.concatenate(df.forces.values).flatten()
