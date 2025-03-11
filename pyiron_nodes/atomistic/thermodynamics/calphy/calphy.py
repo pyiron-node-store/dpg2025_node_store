@@ -398,7 +398,7 @@ def PlotFreeEnergy(temperature: np.ndarray, free_energy: np.ndarray):
     return figure
 
 @as_function_node('phase_transition_temperature', 'figure')
-def CalcPhaseTransformationTemp(temp_A: np.ndarray, fe_A: np.ndarray, temp_B: np.ndarray, fe_B: np.ndarray, fit_order: int = 4) -> float:
+def CalcPhaseTransformationTemp(temp_A: np.ndarray, fe_A: np.ndarray, temp_B: np.ndarray, fe_B: np.ndarray, fit_order: int = 4):
     """
     Calculate the phase transformation temperature from free energy data.
 
