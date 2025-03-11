@@ -304,7 +304,7 @@ def _calc_rmse(array_1,array_2,rmse_in_milli:bool = True):
     rmse: The calculated RMSE value
     '''
     rmse = np.sqrt(np.mean((array_1 - array_2) ** 2))
-    if rmse_in_milli == True:
+    if rmse_in_milli:
         return rmse * 1000
     else:
         return rmse
@@ -391,7 +391,7 @@ def PlotEnergyFittingCurve(data_dict: dict):
     axe.plot(lims, lims, ls = '--', color = 'C0')
 
     if 'reference_testing_epa' in data_dict.keys():
-        rmse_testing = _calc_rmse(data_dict['reference_testing_epa'], data_dict[f'predicted_testing_epa'])
+        rmse_testing = _calc_rmse(data_dict['reference_testing_epa'], data_dict['predicted_testing_epa'])
         axe.scatter(data_dict['reference_testing_epa'], data_dict['predicted_testing_epa'],
             color = 'black', s = 30, marker = '+', label = f'Testing RMSE = {rmse_testing:.2f} (meV/atom)')
 
@@ -412,7 +412,7 @@ def PlotForcesFittingCurve(data_dict: dict):
     fig, axe = plt.subplots()
 
     lims = [data_dict['reference_training_fpa'].min(), data_dict['reference_training_fpa'].max()]
-    axe.plot(lims, lims, ls = '--', color = f'C1')
+    axe.plot(lims, lims, ls = '--', color = 'C1')
 
     if 'reference_testing_epa' in data_dict.keys():
         rmse_testing = _calc_rmse(data_dict['reference_testing_fpa'], data_dict['predicted_testing_fpa'])
