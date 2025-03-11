@@ -14,9 +14,8 @@ def Plot3d(
 ):
     """Display atomistic structure (ase.Atoms) using nglview"""
     from structuretoolkit import plot3d
-    from structuretoolkit.build import _repeat
 
-    structure = _repeat(structure, repeat)
+    structure = structure.repeat(repeat)
 
     return plot3d(
         structure=structure,
