@@ -11,31 +11,36 @@ class EmbeddingsALL:
     fs_parameters: list[int] = field(default_factory=lambda: [1, 1])
     ndensity: int = 1
 
+
 @dataclass
 class Embeddings:
     ALL: EmbeddingsALL = field(default_factory=EmbeddingsALL)
 
+
 @dataclass
 class BondsALL:
-    radbase: str = 'SBessel'
+    radbase: str = "SBessel"
     radparameters: list[float] = field(default_factory=lambda: [5.25])
     rcut: float | int = 7.0
     dcut: float = 0.01
+
 
 @dataclass
 class Bonds:
     ALL: BondsALL = field(default_factory=BondsALL)
 
+
 @dataclass
 class FunctionsALL:
-    nradmax_by_orders: list[int] = field(default_factory=lambda: [15,3,2,1])
-    lmax_by_orders: list[int] = field(default_factory=lambda: [0,3,2,1])
+    nradmax_by_orders: list[int] = field(default_factory=lambda: [15, 3, 2, 1])
+    lmax_by_orders: list[int] = field(default_factory=lambda: [0, 3, 2, 1])
 
 
 @dataclass
 class Functions:
     number_of_functions_per_element: int | None = None
     ALL: FunctionsALL = field(default_factory=FunctionsALL)
+
 
 @dataclass
 class PotentialConfig:
@@ -67,17 +72,18 @@ class PotentialConfig:
         return remove_none(asdict(self))
 
 @as_function_node
-def ReadPickledDatasetAsDataframe(file_path:str = '', compression:str | None = 'gzip'):
-
+def ReadPickledDatasetAsDataframe(
+    file_path: str = "", compression: str | None = "gzip"
+):
     from ase.atoms import Atoms as aseAtoms
 
-    df = pd.read_pickle(file_path,compression=compression)
+    df = pd.read_pickle(file_path, compression=compression)
 
     # Atoms check
-    if 'atoms' in df.columns:
-        at = df.iloc[0]['atoms']
+    if "atoms" in df.columns:
+        at = df.iloc[0]["atoms"]
         # Checking that the elements themselves have the correct atoms format
-        if isinstance(at,aseAtoms):
+        if isinstance(at, aseAtoms):
             df.rename(columns={"atoms": "ase_atoms"}, inplace=True)
     elif "ase_atoms" not in df.columns:
         raise ValueError(
@@ -102,10 +108,8 @@ def ReadPickledDatasetAsDataframe(file_path:str = '', compression:str | None = '
 
 @as_function_node
 def ParameterizePotentialConfig(
-    number_of_functions: int | None = 10,
-    rcut: float | int = 7.0
-    ):
-
+    number_of_functions: int | None = 10, rcut: float | int = 7.0
+):
     potential_config = PotentialConfig()
 
     potential_config.bonds.ALL.rcut = rcut
@@ -114,8 +118,10 @@ def ParameterizePotentialConfig(
     return potential_config
 
 @as_function_node
-def SplitTrainingAndTesting(data_df:pd.DataFrame, training_frac:float | int = 0.5, random_state : int = 42):
-    '''
+def SplitTrainingAndTesting(
+    data_df: pd.DataFrame, training_frac: float | int = 0.5, random_state: int = 42
+):
+    """
     Splits the filtered dataframe into training and testing sets based on a fraction of the dataset
 
     Args:
@@ -126,31 +132,39 @@ def SplitTrainingAndTesting(data_df:pd.DataFrame, training_frac:float | int = 0.
     Returns:
         df_training: The training dataframe
         df_testing: The testing dataframe
-    '''
+    """
     if isinstance(training_frac, float):
         training_frac = np.abs(training_frac)
 
     if training_frac > 1:
-        print("Can't have the training dataset more than 100 \% of the dataset\n\
-            Setting the value to 100%")
+        print(
+            "Can't have the training dataset more than 100 \% of the dataset\n\
+            Setting the value to 100%"
+        )
         training_frac = 1
     elif training_frac == 0:
         print("Can'fit with no training dataset\nSetting the value to 1%")
         training_frac = 0.01
-    df_training = data_df.sample(frac=training_frac,random_state = random_state)
+    df_training = data_df.sample(frac=training_frac, random_state=random_state)
     df_testing = data_df.loc[(i for i in data_df.index if i not in df_training.index)]
 
     return df_training, df_testing
 
 
 @as_function_node
-def RunLinearFit(potential_config, df_train: pd.DataFrame, df_test: pd.DataFrame, verbose: bool = False):
+def RunLinearFit(
+    potential_config,
+    df_train: pd.DataFrame,
+    df_test: pd.DataFrame,
+    verbose: bool = False,
+):
 
     from pyace.linearacefit import LinearACEFit, LinearACEDataset
     from pyace import create_multispecies_basis_config
     import time
 
     from pyiron_snippets.logger import logger
+
     logger.setLevel(30)
 
     elements_set = set()
@@ -166,35 +180,34 @@ def RunLinearFit(potential_config, df_train: pd.DataFrame, df_test: pd.DataFrame
     bconf = create_multispecies_basis_config(potential_config_dict)
     t0 = time.time()
 
-
-    train_ds = LinearACEDataset(bconf,df_train)
+    train_ds = LinearACEDataset(bconf, df_train)
     train_ds.construct_design_matrix(verbose=verbose)
     print("Design Matrix of Training dataset has been constructed!")
     if df_test.empty is False:
-        test_ds = LinearACEDataset(bconf,df_test)
+        test_ds = LinearACEDataset(bconf, df_test)
         test_ds.construct_design_matrix(verbose=verbose)
         print("Design Matrix of Testing dataset has been constructed!")
     else:
         test_ds = None
 
-    linear_fit = LinearACEFit(train_dataset= train_ds)
+    linear_fit = LinearACEFit(train_dataset=train_ds)
     linear_fit.fit()
 
     t1 = time.time()
-    total_time = t1-t0
+    total_time = t1 - t0
     print(f"Fitting Done in {total_time:.1f} seconds.")
 
     training_dict = linear_fit.compute_errors(train_ds)
-    training_e_rmse = round(training_dict['epa_rmse'] * 1000, 2)
-    training_f_rmse = round(training_dict['f_comp_rmse'] * 1000, 2)
+    training_e_rmse = round(training_dict["epa_rmse"] * 1000, 2)
+    training_f_rmse = round(training_dict["f_comp_rmse"] * 1000, 2)
     print("====================== TRAINING INFO ======================")
     print(f"Training E RMSE: {training_e_rmse:.2f} meV/atom")
     print(f"Training F RMSE: {training_f_rmse:.2f} meV/A")
 
     if test_ds is not None:
         testing_dict = linear_fit.compute_errors(test_ds)
-        testing_e_rmse = round(testing_dict['epa_rmse'] * 1000, 2)
-        testing_f_rmse = round(testing_dict['f_comp_rmse'] * 1000, 2)
+        testing_e_rmse = round(testing_dict["epa_rmse"] * 1000, 2)
+        testing_f_rmse = round(testing_dict["f_comp_rmse"] * 1000, 2)
         print("======================= TESTING INFO =======================")
         print(f"Testing E RMSE: {testing_e_rmse:.2f} meV/atom")
         print(f"Testing F RMSE: {testing_f_rmse:.2f} meV/A")
@@ -202,8 +215,10 @@ def RunLinearFit(potential_config, df_train: pd.DataFrame, df_test: pd.DataFrame
     basis = linear_fit.get_bbasis()
     return basis
 
+
 @as_function_node
-def SavePotential(basis, filename:str = ""):
+def SavePotential(basis, filename: str = ""):
+
     import os
 
     if filename == "":
@@ -217,9 +232,11 @@ def SavePotential(basis, filename:str = ""):
     os.makedirs(folder_name, exist_ok=True)
 
     current_path = os.getcwd()
-    folder_path = current_path + '/' + folder_name
+    folder_path = current_path + "/" + folder_name
     # Saving yaml and yace files
-    print(f"Potentials \"{filename}.yaml\" and \"{filename}.yace\" are saved in \"{folder_path}\".")
+    print(
+        f'Potentials "{filename}.yaml" and "{filename}.yace" are saved in "{folder_path}".'
+    )
 
     yace_file_path = f"{folder_path}/{filename}.yace"
     basis.save(f"{folder_path}/{filename}.yaml")
@@ -227,9 +244,9 @@ def SavePotential(basis, filename:str = ""):
 
     return basis, yace_file_path
 
+
 @as_function_node
 def PredictEnergiesAndForces(basis, df_train: pd.DataFrame, df_test: pd.DataFrame):
-
     from pyace import PyACECalculator
 
     data_dict = {}
@@ -244,17 +261,19 @@ def PredictEnergiesAndForces(basis, df_train: pd.DataFrame, df_test: pd.DataFram
 
     training_epa = training_energies / training_number_of_atoms
     training_fpa = np.concatenate(df_train.forces.to_numpy()).flatten()
-    data_dict['reference_training_epa'] = training_epa
-    data_dict['reference_training_fpa'] = training_fpa
+    data_dict["reference_training_epa"] = training_epa
+    data_dict["reference_training_fpa"] = training_fpa
 
     # Predicted data
-    training_predict = _get_predicted_energies_forces(ace = ace, structures= training_structures,
-     data_type='Training')
-    data_dict['predicted_training_epa'] = np.array(training_predict[0]) / training_number_of_atoms
-    data_dict['predicted_training_fpa'] = np.concatenate(training_predict[1]).flatten()
+    training_predict = _get_predicted_energies_forces(
+        ace=ace, structures=training_structures, data_type="Training"
+    )
+    data_dict["predicted_training_epa"] = (
+        np.array(training_predict[0]) / training_number_of_atoms
+    )
+    data_dict["predicted_training_fpa"] = np.concatenate(training_predict[1]).flatten()
 
     if df_test.empty is False:
-
         testing_structures = df_test.ase_atoms
 
         # Reference data
@@ -263,36 +282,40 @@ def PredictEnergiesAndForces(basis, df_train: pd.DataFrame, df_test: pd.DataFram
 
         testing_epa = testing_energies / testing_number_of_atoms
         testing_fpa = np.concatenate(df_test.forces.to_numpy()).flatten()
-        data_dict['reference_testing_epa'] = testing_epa
-        data_dict['reference_testing_fpa'] = testing_fpa
+        data_dict["reference_testing_epa"] = testing_epa
+        data_dict["reference_testing_fpa"] = testing_fpa
 
         # Predicted data
-        testing_predict =  _get_predicted_energies_forces(ace = ace, structures= testing_structures,
-         data_type='Testing')
-        data_dict['predicted_testing_epa'] = np.array(testing_predict[0]) / testing_number_of_atoms
-        data_dict['predicted_testing_fpa'] = np.concatenate(testing_predict[1]).flatten()
+        testing_predict = _get_predicted_energies_forces(
+            ace=ace, structures=testing_structures, data_type="Testing"
+        )
+        data_dict["predicted_testing_epa"] = (
+            np.array(testing_predict[0]) / testing_number_of_atoms
+        )
+        data_dict["predicted_testing_fpa"] = np.concatenate(
+            testing_predict[1]
+        ).flatten()
 
     return data_dict
 
-def _get_predicted_energies_forces(ace, structures, data_type:str):
-<<<<<<< HEAD
-    from tqdm import tqdm
-=======
+def _get_predicted_energies_forces(ace, structures, data_type: str):
     from tqdm.auto import tqdm
->>>>>>> 0962c00 (Remove empty spaces; use tqdm.auto; read from data/)
 
     forces = []
     energies = []
 
-    for s in tqdm(structures, desc=f"Predicting Energies and Forces of {data_type} dataset"):
+    for s in tqdm(
+        structures, desc=f"Predicting Energies and Forces of {data_type} dataset"
+    ):
         s.calc = ace
         energies.append(s.get_potential_energy())
         forces.append(s.get_forces())
         s.calc = None
     return energies, forces
 
-def _calc_rmse(array_1,array_2,rmse_in_milli:bool = True):
-    '''
+
+def _calc_rmse(array_1, array_2, rmse_in_milli: bool = True):
+    """
     Calculates the RMSE value of two arrays
 
     Args:
@@ -302,129 +325,173 @@ def _calc_rmse(array_1,array_2,rmse_in_milli:bool = True):
 
     Returns:
     rmse: The calculated RMSE value
-    '''
+    """
     rmse = np.sqrt(np.mean((array_1 - array_2) ** 2))
     if rmse_in_milli:
         return rmse * 1000
     else:
         return rmse
 
-def make_linearfit(
-    workflow_name:str,
-    delete_existing_savefiles = False,
-    file_path:str = "data/mgca.pckl.tgz",
-    compression:str | None = None,
-    training_frac:float | int = 0.5,
-    number_of_functions_per_element:int | None = 10,
-    rcut : float | int = 6.0
-    ):
 
+def make_linearfit(
+    workflow_name: str,
+    delete_existing_savefiles=False,
+    file_path: str = "data/mgca.pckl.tgz",
+    compression: str | None = None,
+    training_frac: float | int = 0.5,
+    number_of_functions_per_element: int | None = 10,
+    rcut: float | int = 6.0,
+):
     wf = Workflow(workflow_name, delete_existing_savefiles=delete_existing_savefiles)
     if wf.has_saved_content():
         return wf
 
     # Workflow connections
-    wf.load_dataset = ReadPickledDatasetAsDataframe(file_path = file_path, compression = compression)
-    wf.split_dataset = SplitTrainingAndTesting(data_df = wf.load_dataset.outputs.df,
-    training_frac = training_frac)
-    wf.parameterize_potential = ParameterizePotentialConfig(number_of_functions = number_of_functions_per_element,
-    rcut = rcut)
-    wf.run_linear_fit = RunLinearFit(potential_config = wf.parameterize_potential,
-                                                    df_train = wf.split_dataset.outputs.df_training,
-                                                    df_test=wf.split_dataset.outputs.df_testing,
-                                                    verbose = False)
-    wf.save_potential = SavePotential(basis = wf.run_linear_fit.outputs.basis)
-    wf.predict_energies_forces = PredictEnergiesAndForces(basis = wf.run_linear_fit.outputs.basis,
-    df_train = wf.split_dataset.outputs.df_training, df_test = wf.split_dataset.outputs.df_testing)
+    wf.load_dataset = ReadPickledDatasetAsDataframe(
+        file_path=file_path, compression=compression
+    )
+    wf.split_dataset = SplitTrainingAndTesting(
+        data_df=wf.load_dataset.outputs.df, training_frac=training_frac
+    )
+    wf.parameterize_potential = ParameterizePotentialConfig(
+        number_of_functions=number_of_functions_per_element, rcut=rcut
+    )
+    wf.run_linear_fit = RunLinearFit(
+        potential_config=wf.parameterize_potential,
+        df_train=wf.split_dataset.outputs.df_training,
+        df_test=wf.split_dataset.outputs.df_testing,
+        verbose=False,
+    )
+    wf.save_potential = SavePotential(basis=wf.run_linear_fit.outputs.basis)
+    wf.predict_energies_forces = PredictEnergiesAndForces(
+        basis=wf.run_linear_fit.outputs.basis,
+        df_train=wf.split_dataset.outputs.df_training,
+        df_test=wf.split_dataset.outputs.df_testing,
+    )
 
     # Input mapping
     wf.inputs_map = {
-    'run_linear_fit__verbose': 'verbose',
-    'save_potential__filename': 'filename',
-    'parameterize_potential__number_of_functions_per_element': 'number_of_functions_per_element',
-    'parameterize_potential__rcut': 'rcut',
+        "run_linear_fit__verbose": "verbose",
+        "save_potential__filename": "filename",
+        "parameterize_potential__number_of_functions_per_element": "number_of_functions_per_element",
+        "parameterize_potential__rcut": "rcut",
     }
 
     # Output maping
-    wf.outputs_map ={
-    'save_potential__yace_file_path': 'yace_file_path',
-    'predict_energies_forces__data_dict': 'data_dict'
+    wf.outputs_map = {
+        "save_potential__yace_file_path": "yace_file_path",
+        "predict_energies_forces__data_dict": "data_dict",
     }
 
     return wf
 
+
 ########################## PLOTTING NODES ##########################
 
 # HISTOGRAM FOR ENERGY DISTRIBUTION
-@as_function_node(use_cache = False)
-def PlotEnergyHistogram(df: pd.DataFrame, bins: int = 100, log_scale:bool = True):
-
+@as_function_node(use_cache=False)
+def PlotEnergyHistogram(df: pd.DataFrame, bins: int = 100, log_scale: bool = True):
     # Calculate energy_per_atom
-    df['energy_per_atom'] = df['energy_corrected']/ df['NUMBER_OF_ATOMS']
+    df["energy_per_atom"] = df["energy_corrected"] / df["NUMBER_OF_ATOMS"]
 
     fig, axe = plt.subplots()
-    axe.hist(df['energy_per_atom'], bins = bins, log= log_scale)
+    axe.hist(df["energy_per_atom"], bins=bins, log=log_scale)
     axe.set_ylabel("Count")
     axe.set_xlabel("Energy per atom (eV/atom)")
     plt.show()
 
-# HISTOGRAM FOR FORCE DISTRIBUTION
-@as_function_node(use_cache = False)
-def PlotForcesHistogram(df: pd.DataFrame, bins: int = 100, log_scale:bool = True):
 
+# HISTOGRAM FOR FORCE DISTRIBUTION
+@Workflow.wrap.as_function_node(use_cache=False)
+@as_function_node(use_cache=False)
+def PlotForcesHistogram(df: pd.DataFrame, bins: int = 100, log_scale: bool = True):
     array = np.concatenate(df.forces.values).flatten()
 
     fig, axe = plt.subplots()
 
-    axe.hist(array, bins = bins, log= log_scale)
+    axe.hist(array, bins=bins, log=log_scale)
     axe.set_ylabel("Count")
     axe.set_xlabel(r"Force (eV/$\mathrm{\AA}$)")
     plt.show()
 
-@as_function_node(use_cache = False)
-def PlotEnergyFittingCurve(data_dict: dict):
 
+@as_function_node(use_cache=False)
+def PlotEnergyFittingCurve(data_dict: dict):
     fig, axe = plt.subplots()
 
+    lims = [
+        data_dict["reference_training_epa"].min(),
+        data_dict["reference_training_epa"].max(),
+    ]
+    axe.plot(lims, lims, ls="--", color="C0")
 
-    lims = [data_dict['reference_training_epa'].min(), data_dict['reference_training_epa'].max()]
-    axe.plot(lims, lims, ls = '--', color = 'C0')
+    if "reference_testing_epa" in data_dict.keys():
+        rmse_testing = _calc_rmse(
+            data_dict["reference_testing_epa"], data_dict["predicted_testing_epa"]
+        )
+        axe.scatter(
+            data_dict["reference_testing_epa"],
+            data_dict["predicted_testing_epa"],
+            color="black",
+            s=30,
+            marker="+",
+            label=f"Testing RMSE = {rmse_testing:.2f} (meV/atom)",
+        )
 
-    if 'reference_testing_epa' in data_dict.keys():
-        rmse_testing = _calc_rmse(data_dict['reference_testing_epa'], data_dict['predicted_testing_epa'])
-        axe.scatter(data_dict['reference_testing_epa'], data_dict['predicted_testing_epa'],
-            color = 'black', s = 30, marker = '+', label = f'Testing RMSE = {rmse_testing:.2f} (meV/atom)')
-
-    rmse_training = _calc_rmse(data_dict['reference_training_epa'], data_dict['predicted_training_epa'])
-    axe.scatter(data_dict['reference_training_epa'], data_dict['predicted_training_epa'],
-        color = 'C0', s=30, label = f'Training RMSE = {rmse_training:.2f} (meV/atom)')
+    rmse_training = _calc_rmse(
+        data_dict["reference_training_epa"], data_dict["predicted_training_epa"]
+    )
+    axe.scatter(
+        data_dict["reference_training_epa"],
+        data_dict["predicted_training_epa"],
+        color="C0",
+        s=30,
+        label=f"Training RMSE = {rmse_training:.2f} (meV/atom)",
+    )
 
     axe.set_xlabel("DFT E (eV/atom)")
     axe.set_ylabel("Predicted E (eV/atom)")
-    axe.set_title('Predicted Energy Vs Reference Energy')
+    axe.set_title("Predicted Energy Vs Reference Energy")
     axe.legend()
     plt.show()
 
 
-@as_function_node(use_cache = False)
+@as_function_node(use_cache=False)
 def PlotForcesFittingCurve(data_dict: dict):
-
     fig, axe = plt.subplots()
 
-    lims = [data_dict['reference_training_fpa'].min(), data_dict['reference_training_fpa'].max()]
-    axe.plot(lims, lims, ls = '--', color = 'C1')
+    lims = [
+        data_dict["reference_training_fpa"].min(),
+        data_dict["reference_training_fpa"].max(),
+    ]
+    axe.plot(lims, lims, ls="--", color="C1")
 
-    if 'reference_testing_epa' in data_dict.keys():
-        rmse_testing = _calc_rmse(data_dict['reference_testing_fpa'], data_dict['predicted_testing_fpa'])
-        axe.scatter(data_dict['reference_testing_fpa'], data_dict['predicted_testing_fpa'],
-            color = 'black', s = 30, marker = '+', label = f'Testing RMSE = {rmse_testing:.2f} (meV/$\AA$)')
+    if "reference_testing_epa" in data_dict.keys():
+        rmse_testing = _calc_rmse(
+            data_dict["reference_testing_fpa"], data_dict["predicted_testing_fpa"]
+        )
+        axe.scatter(
+            data_dict["reference_testing_fpa"],
+            data_dict["predicted_testing_fpa"],
+            color="black",
+            s=30,
+            marker="+",
+            label=f"Testing RMSE = {rmse_testing:.2f} (meV/$\AA$)",
+        )
 
-    rmse_training = _calc_rmse(data_dict['reference_training_fpa'], data_dict['predicted_training_fpa'])
-    axe.scatter(data_dict['reference_training_fpa'], data_dict['predicted_training_fpa'],
-        color = 'C1', s=30, label = f'Training RMSE = {rmse_training:.2f} (meV/$\AA$)')
+    rmse_training = _calc_rmse(
+        data_dict["reference_training_fpa"], data_dict["predicted_training_fpa"]
+    )
+    axe.scatter(
+        data_dict["reference_training_fpa"],
+        data_dict["predicted_training_fpa"],
+        color="C1",
+        s=30,
+        label=f"Training RMSE = {rmse_training:.2f} (meV/$\AA$)",
+    )
 
     axe.set_xlabel("DFT $F_i$ (eV/$\AA$)")
     axe.set_ylabel("Predicted $F_i$ (eV/$\AA$)")
-    axe.set_title('Predicted Force Vs Reference Force')
+    axe.set_title("Predicted Force Vs Reference Force")
     axe.legend()
     plt.show()
