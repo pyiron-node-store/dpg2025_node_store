@@ -151,8 +151,8 @@ class InputClass:
     n_switching_steps: int = 2500
     n_print_steps: int = 1000
     n_iterations: int = 1
-    equilibration_control: str = "nose_hoover"
-    melting_cycle: bool = True
+    equilibration_control: str = "nose-hoover"
+    melting_cycle: bool = False
     cores: Optional[int] = 1
 
 def _generate_random_string(length: str) -> str:
@@ -319,7 +319,7 @@ def LiquidFreeEnergy(inp, structure: Atoms, potential: str) -> float:
     return job.report["results"]["free_energy"]
 
 @as_function_node('temperature', 'free_energy')
-def SolidFreeEnergyWithTemperature(inp, structure: Atoms, potential: str) -> Tuple[np.ndarray, np.ndarray]:
+def SolidFreeEnergyWithTemp(inp, structure: Atoms, potential: str) -> Tuple[np.ndarray, np.ndarray]:
     """
     Calculate the free energy of a solid phase as a function of temperature.
 
@@ -354,7 +354,7 @@ def SolidFreeEnergyWithTemperature(inp, structure: Atoms, potential: str) -> Tup
     return t, f
 
 @as_function_node('temperature', 'free_energy')
-def LiquidFreeEnergyWithTemperature(inp, structure: Atoms, potential: str) -> Tuple[np.ndarray, np.ndarray]:
+def LiquidFreeEnergyWithTemp(inp, structure: Atoms, potential: str) -> Tuple[np.ndarray, np.ndarray]:
     """
     Calculate the free energy of a liquid phase as a function of temperature.
 
