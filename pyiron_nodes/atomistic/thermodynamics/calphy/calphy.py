@@ -397,8 +397,8 @@ def PlotFreeEnergy(temperature: np.ndarray, free_energy: np.ndarray):
     figure = plt.show()
     return figure
 
-@as_function_node('phase_transition_temperature')
-def CalcPhaseTransformationTemp(temp_A: np.ndarray, fe_A: np.ndarray, temp_B: np.ndarray, fe_B: np.ndarray, fit_order: int = 4, plot: bool =True) -> float:
+@as_function_node('phase_transition_temperature', 'figure')
+def CalcPhaseTransformationTemp(temp_A: np.ndarray, fe_A: np.ndarray, temp_B: np.ndarray, fe_B: np.ndarray, fit_order: int = 4) -> float:
     """
     Calculate the phase transformation temperature from free energy data.
 
@@ -414,8 +414,6 @@ def CalcPhaseTransformationTemp(temp_A: np.ndarray, fe_A: np.ndarray, temp_B: np
         Free energy array for phase 2.
     fit_order: int
         Order of the polynomial fit.
-    plot: bool
-        Plot the free energy data and the fit.
     
     Returns:
     --------
@@ -460,21 +458,22 @@ def CalcPhaseTransformationTemp(temp_A: np.ndarray, fe_A: np.ndarray, temp_B: np
         warnings.warn('It is likely there is no intersection of free energies')
 
     #plot
-    if plot:
-        c1lo = '#ef9a9a'
-        c1hi = '#b71c1c'
-        c2lo = '#90caf9'
-        c2hi = '#0d47a1'
+    c1lo = '#ef9a9a'
+    c1hi = '#b71c1c'
+    c2lo = '#90caf9'
+    c2hi = '#0d47a1'
 
-        plt.plot(fit_t, fit_f1, color=c1lo, label=f'phase A fit')
-        plt.plot(fit_t, fit_f2, color=c2lo, label=f'phase B fit')
-        plt.plot(temp_A, fe_A, color=c1hi, label='phase A', ls='dashed')
-        plt.plot(temp_B, fe_B, color=c2hi, label='phase B', ls='dashed')
-        plt.axvline(transition_temp, ls='dashed', c='#37474f')
-        plt.ylabel('Free energy (eV/atom)')
-        plt.xlabel('Temperature (K)')
-        plt.legend(frameon=False)
-    return transition_temp
+    plt.plot(fit_t, fit_f1, color=c1lo, label=f'phase A fit')
+    plt.plot(fit_t, fit_f2, color=c2lo, label=f'phase B fit')
+    plt.plot(temp_A, fe_A, color=c1hi, label='phase A', ls='dashed')
+    plt.plot(temp_B, fe_B, color=c2hi, label='phase B', ls='dashed')
+    plt.axvline(transition_temp, ls='dashed', c='#37474f')
+    plt.ylabel('Free energy (eV/atom)')
+    plt.xlabel('Temperature (K)')
+    plt.legend(frameon=False)
+    figure = plt.show()
+
+    return transition_temp, figure
 
 @as_function_node('results')
 def CollectResults() -> pd.DataFrame:
