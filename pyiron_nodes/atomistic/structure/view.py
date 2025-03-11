@@ -9,13 +9,30 @@ from typing import Iterable, Optional
 @as_function_node("plot", use_cache=False)
 def Plot3d(
     structure: _Atoms,
-    particle_size: Optional[int | float] = 1.0,
+    particle_size: Optional[int | float] = 3.0,
     repeat: int = 1,
 ):
     """Display atomistic structure (ase.Atoms) using nglview"""
     from structuretoolkit import plot3d
 
     structure = structure.repeat(repeat)
+
+    return plot3d(
+        structure=structure,
+        particle_size=particle_size,
+    )
+
+@as_function_node("plot", use_cache=False)
+def Plot3dFromList(
+    structures: list[_Atoms],
+    index: int = 0,
+    particle_size: Optional[int | float] = 3.0,
+    repeat: int = 1,
+):
+    """Display atomistic structure (ase.Atoms) using nglview"""
+    from structuretoolkit import plot3d
+
+    structure = structures[index].repeat(repeat)
 
     return plot3d(
         structure=structure,
