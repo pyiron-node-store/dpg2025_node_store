@@ -27,6 +27,21 @@ def CreateVacancy(structure, index: int | None = 0):
 
     return structure
 
+@as_function_node
+def Rattle(structure, seed: int = 42, stdev: float = 0.1):
+    """
+    Randomly displace the atoms in the structure.
+
+    Parameters:
+
+    seed = 42:
+    Random seed for the random number generator.
+    amplitude = 0.1:
+    The amplitude of the random displacement.
+    """
+    structure = structure.copy()
+    structure.rattle(seed=seed, stdev=stdev)
+    return structure
 
 @as_function_node("structure")
 def RotateAxisAngle(

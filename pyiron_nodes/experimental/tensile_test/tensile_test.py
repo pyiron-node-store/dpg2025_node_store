@@ -2,7 +2,7 @@ from pyiron_workflow import as_function_node, as_macro_node, as_dataclass_node
 import numpy as np
 
 @as_function_node
-def CovertLoadToStress(df, area: float):
+def ConvertLoadToStress(df, area: float):
     """
     Read in csv file, convert load to stress
     """
