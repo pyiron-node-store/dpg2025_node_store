@@ -37,7 +37,7 @@ def make_assyst(name, *elements, delete_existing_savefiles=False):
         if len(elements) > 0:
             wf.Multiply = stoi
         spg = SpaceGroupSampling(
-                stoichiometry=stoi,
+                elements=stoi,
                 spacegroups=None,
                 max_atoms=len(element_nodes) * max_ion,
                 max_structures=max_structures
