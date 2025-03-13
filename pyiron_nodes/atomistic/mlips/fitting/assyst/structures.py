@@ -9,48 +9,48 @@ import pandas as pd
 from ase import Atoms
 
 @dataclass(frozen=True)
-class Stoichiometry(Sequence):
-    stoichiometry: tuple[dict[str, int]]
+class Elements(Sequence):
+    atoms: tuple[dict[str, int]]
 
     @property
     def elements(self) -> set[str]:
-        """Set of elements present in stoichiometry."""
+        """Set of elements present in elements."""
         e = set()
-        for s in self.stoichiometry:
-            s = e.union(s.keys())
-        return s
+        for s in self.atoms:
+            e = e.union(s.keys())
+        return e
 
     # FIXME: Self only availabe in >=3.11
-    def __add__(self, other: 'Stoichiometry') -> 'Stoichiometry':
+    def __add__(self, other: 'Elements') -> 'Elements':
         """Extend underlying list of stoichiometries."""
-        return Stoichiometry(self.stoichiometry + other.stoichiometry)
+        return Elements(self.atoms + other.atoms)
 
-    def __or__(self, other: 'Stoichiometry') -> 'Stoichiometry':
+    def __or__(self, other: 'Elements') -> 'Elements':
         """Inner product of underlying stoichiometries.
 
-        Must not share elements with other stoichiometry."""
+        Must not share elements with other.elements."""
         assert self.elements.isdisjoint(other.elements), "Can only or stoichiometries of different elements!"
         s = ()
-        for me, you in zip(self.stoichiometry, other.stoichiometry):
+        for me, you in zip(self.atoms, other.atoms):
             s += (me | you,)
-        return Stoichiometry(s)
+        return Elements(s)
 
-    def __mul__(self, other: 'Stoichiometry') -> 'Stoichiometry':
+    def __mul__(self, other: 'Elements') -> 'Elements':
         """Outer product of underlying stoichiometries.
 
-        Must not share elements with other stoichiometry."""
+        Must not share elements with other.elements."""
         assert self.elements.isdisjoint(other.elements), "Can only multiply stoichiometries of different elements!"
         s = ()
-        for me, you in product(self.stoichiometry, other.stoichiometry):
+        for me, you in product(self.atoms, other.atoms):
             s += (me | you,)
-        return Stoichiometry(s)
+        return Elements(s)
 
     # Sequence Impl'
     def __getitem__(self, index: int) -> dict[str, int]:
-        return self.stoichiometry[index]
+        return self.atoms[index]
 
     def __len__(self) -> int:
-        return len(self.stoichiometry)
+        return len(self.atoms)
 
 
 @as_function_node
@@ -59,27 +59,27 @@ def ElementInput(
         min_ion: int =  1,
         max_ion: int = 10,
         step_ion: int = 1,
-) -> Stoichiometry:
-    stoichiometry = Stoichiometry(tuple({element: i} for i in range(min_ion, max_ion + 1, step_ion)))
-    return stoichiometry
+) -> Elements:
+    elements = Elements(tuple({element: i} for i in range(min_ion, max_ion + 1, step_ion)))
+    return elements
 
 @as_function_node("filtered")
 def FilterSize(
-        stoichiometry: Stoichiometry,
+        elements: Elements,
         min: int | None = 0,
         max: int | None = None,
 ):
     import math
     if max is None:
         max = math.inf
-    return Stoichiometry(tuple(s for s in stoichiometry
+    return Elements(tuple(s for s in elements
                                 if min <= sum(s.values()) <= max ))
 
 @as_function_node#("df")
-def StoichiometryTable(stoichiometry: Stoichiometry) -> pd.DataFrame:
+def ElementsTable(elements: Elements) -> pd.DataFrame:
     import pandas as pd
     from IPython.display import display
-    df = pd.DataFrame(stoichiometry.stoichiometry)
+    df = pd.DataFrame(elements.elements)
     with pd.option_context("display.max_rows",    10000000,  # inf not allowed
                            "display.max_columns", 10000000): # just pick large
         display(df)
@@ -87,7 +87,7 @@ def StoichiometryTable(stoichiometry: Stoichiometry) -> pd.DataFrame:
 
 @as_function_node
 def SpaceGroupSampling(
-        stoichiometry: Stoichiometry,
+        elements: Elements,
         spacegroups: list[int] | tuple[int,...] | None = None,
         max_atoms: int = 10,
         max_structures: int | None = None,
@@ -104,7 +104,7 @@ def SpaceGroupSampling(
 
     structures = []
     with catch_warnings(category=UserWarning, action='ignore'):
-        for stoich in (bar := tqdm(stoichiometry)):
+        for stoich in (bar := tqdm(elements)):
             elements, num_ions = zip(*stoich.items())
             stoich_str = "".join(f"{s}{n}" for s, n in zip(elements, num_ions))
             bar.set_description(stoich_str)

@@ -4,7 +4,6 @@ from pyiron_workflow.nodes.standard import Multiply
 from .structures import (
         SpaceGroupSampling,
         ElementInput,
-        StoichiometryTable,
         CombineStructures,
         SaveStructures
 )

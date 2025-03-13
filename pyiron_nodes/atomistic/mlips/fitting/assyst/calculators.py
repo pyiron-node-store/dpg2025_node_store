@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 
-from pyiron_workflow import Workflow
+from pyiron_workflow import as_function_node, as_dataclass_node
 
 from pyiron_nodes.atomistic.mlips.calculator._generic import AseCalculatorConfig
 
 from ase import Atoms
 
-@Workflow.wrap.as_dataclass_node
+@as_dataclass_node
 @dataclass
 class GenericOptimizerSettings:
     max_steps: int = 10
@@ -37,7 +37,7 @@ class RelaxMode(Enum):
                 raise ValueError("Lazy Marvin")
 
 
-@Workflow.wrap.as_function_node
+@as_function_node
 def Relax(mode: str, calculator: AseCalculatorConfig, opt: GenericOptimizerSettings.dataclass, structure: Atoms) -> Atoms:
     from ase.optimize import LBFGS
     from ase.calculators.singlepoint import SinglePointCalculator
@@ -78,7 +78,7 @@ def Relax(mode: str, calculator: AseCalculatorConfig, opt: GenericOptimizerSetti
 #     _iter_on: ClassVar[tuple[str, ...]] = ("structure",)
 #     _output_as_dataframe: ClassVar[bool] = False
 
-@Workflow.wrap.as_function_node
+@as_function_node
 def RelaxLoop(
         mode: str | RelaxMode,
         calculator: AseCalculatorConfig,
