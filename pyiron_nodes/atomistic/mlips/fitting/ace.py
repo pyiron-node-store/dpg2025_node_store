@@ -225,12 +225,12 @@ def SavePotential(basis, filename: str = ""):
 
     if filename == "":
         filename = f"{'_'.join(basis.elements_name)}_linear_potential"
-        folder_name = "Linear_ace_potentials"
+        folder_name = "potentials"
     else:
         folder_name = os.path.dirname(filename)
         filename = os.path.basename(filename)
 
-    folder_name = "Linear_ace_potentials"
+    folder_name = "potentials"
     os.makedirs(folder_name, exist_ok=True)
 
     current_path = os.getcwd()
