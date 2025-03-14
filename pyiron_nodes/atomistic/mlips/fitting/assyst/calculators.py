@@ -21,7 +21,7 @@ from enum import Enum
 class RelaxMode(Enum):
     VOLUME = "volume"
     # CELL = "cell"
-    # POSITION = "position"
+    INTERNAL = "internal"
     FULL = "full"
 
     def apply_filter_and_constraints(self, structure):
@@ -29,8 +29,8 @@ class RelaxMode(Enum):
             case RelaxMode.VOLUME:
                 structure.set_constraint(FixAtoms(np.ones(len(structure),dtype=bool)))
                 return FrechetCellFilter(structure, hydrostatic_strain=True)
-            # case RelaxMode.CELL:
-            #     return FrechetCellFilter(structure, constant_volume=True)
+            case RelaxMode.INTERNAL:
+                return structure
             case RelaxMode.FULL:
                 return FrechetCellFilter(structure)
             case _:
@@ -38,7 +38,7 @@ class RelaxMode(Enum):
 
 
 @as_function_node
-def Relax(mode: str, calculator: AseCalculatorConfig, opt: GenericOptimizerSettings.dataclass, structure: Atoms) -> Atoms:
+def Relax(mode: str | RelaxMode, calculator: AseCalculatorConfig, opt: GenericOptimizerSettings.dataclass, structure: Atoms) -> Atoms:
     from ase.optimize import LBFGS
     from ase.calculators.singlepoint import SinglePointCalculator
 
@@ -50,7 +50,7 @@ def Relax(mode: str, calculator: AseCalculatorConfig, opt: GenericOptimizerSetti
     match mode:
         case RelaxMode.VOLUME:
             structure.calc = calculator.get_calculator(use_symmetry=True)
-        case RelaxMode.FULL:
+        case RelaxMode.FULL | RelaxLoop.INTERNAL:
             structure.calc = calculator.get_calculator(use_symmetry=False)
         case _:
             assert False
@@ -64,19 +64,9 @@ def Relax(mode: str, calculator: AseCalculatorConfig, opt: GenericOptimizerSetti
             'forces': calc.get_forces(),
             'stress': calc.get_stress()
     })
-    # play catch with nodes
     relaxed_structure = structure
     relaxed_structure.constraints.clear()
     return relaxed_structure
-
-# from pyiron_workflow.nodes.for_loop import For
-# from pyiron_workflow.nodes.static_io import StaticNode
-# from typing import ClassVar
-
-# class RelaxLoop(For):
-#     _body_node_class: ClassVar[type[StaticNode]] = Relax
-#     _iter_on: ClassVar[tuple[str, ...]] = ("structure",)
-#     _output_as_dataframe: ClassVar[bool] = False
 
 @as_function_node
 def RelaxLoop(
