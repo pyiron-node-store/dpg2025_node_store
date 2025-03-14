@@ -14,4 +14,8 @@ class Ace(AseCalculatorConfig):
     @lru_cache(maxsize=1)
     def get_calculator(self, use_symmetry=True):
         from pyace import PyACECalculator
-        return PyACECalculator(self.potential_file)
+        calc = PyACECalculator(self.potential_file)
+        from logging import ERROR
+        from pyiron_snippets.logger import logger
+        logger.setLevel(ERROR)
+        return calc

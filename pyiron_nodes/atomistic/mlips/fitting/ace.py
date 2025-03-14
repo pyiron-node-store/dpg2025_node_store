@@ -182,6 +182,10 @@ def RunLinearFit(
     bconf = create_multispecies_basis_config(potential_config_dict)
     t0 = time.time()
 
+    from logging import ERROR
+    from pyiron_snippets.logger import logger
+    logger.setLevel(ERROR)
+
     train_ds = LinearACEDataset(bconf, df_train)
     train_ds.construct_design_matrix(verbose=verbose)
     print("Design Matrix of Training dataset has been constructed!")
@@ -434,7 +438,7 @@ def PlotEnergyFittingCurve(data_dict: dict):
             data_dict["reference_testing_epa"],
             data_dict["predicted_testing_epa"],
             color="black",
-            s=30,
+            s=15,
             marker="+",
             label=f"Testing RMSE = {rmse_testing:.2f} (meV/atom)",
         )
@@ -447,6 +451,7 @@ def PlotEnergyFittingCurve(data_dict: dict):
         data_dict["predicted_training_epa"],
         color="C0",
         s=30,
+        marker=".",
         label=f"Training RMSE = {rmse_training:.2f} (meV/atom)",
     )
 
@@ -488,6 +493,7 @@ def PlotForcesFittingCurve(data_dict: dict):
         data_dict["predicted_training_fpa"],
         color="C1",
         s=30,
+        marker=".",
         label=f"Training RMSE = {rmse_training:.2f} (meV/$\AA$)",
     )
 
