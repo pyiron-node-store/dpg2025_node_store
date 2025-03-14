@@ -14,28 +14,10 @@ from pyiron_nodes.atomistic.structure.build import Bulk
 from pyiron_nodes.atomistic.mlips.calculator._generic import AseCalculatorConfig
 from pyiron_nodes.atomistic.mlips.calculator.ace import Ace
 from pyiron_nodes.atomistic.mlips.calculator.grace import Grace
-
-
-@as_function_node
-def OptimizeStructure(
-    structure: Atoms,
-    calculator: AseCalculatorConfig,
-    fmax: float = 0.01,
-    max_steps: int = 500
-):
-    """
-    Fully optimizes a given atomic structure, including both atomic positions and cell vectors.
-    """
-    from ase.optimize import BFGS
-    from ase.constraints import ExpCellFilter
-
-    structure = structure.copy()
-    structure.calc = calculator.get_calculator(use_symmetry=False)
-    constrained_structure = ExpCellFilter(structure)
-    optimizer = BFGS(constrained_structure)
-    optimizer.run(fmax=fmax, steps=max_steps)
-
-    return structure
+from pyiron_nodes.atomistic.mlips.fitting.assyst.calculators import (
+        Relax,
+        GenericOptimizerSettings,
+)
 
 
 @as_function_node
@@ -43,17 +25,28 @@ def CalculateEVCurve(
     structure: Atoms,
     calculator: AseCalculatorConfig,
     num_of_points: int = 7,
-    vol_range: float = 0.1,
+    vol_range: float = 0.3,
     per_atom: bool = True,
-    optimize: bool = False
+    opt: GenericOptimizerSettings | None = None,
+
 ):
     """
-    Computes an energy vs volume (EV) curve for a given structure. Return results as a pandas df
+    Computes an energy vs volume (EV) curve for a given structure.
+
+    Args:
+        structure (Atoms): atomic structure
+        calculator (AseCalculatorConfig): energy/force engine to use
+        num_of_points (int): volume samples
+        vol_range (float): minimum/maximum volumetric strain
+        per_atom (float): output per atom quantities rather than supercell quantities
+
+    Returns:
+        DataFrame: columns 'volume', 'energy', 'ase_atoms'
     """
     from ase.optimize import BFGS
     from ase.constraints import ExpCellFilter
 
-    volume_factors = np.linspace(1.0 - vol_range, 1.0 + vol_range, num_of_points)
+    volume_factors = np.linspace((1 - vol_range)**(1/3), (1.0 + vol_range)**(1/3), num_of_points)
 
     structure = structure.copy()
 
@@ -72,10 +65,10 @@ def CalculateEVCurve(
         scaled_structure.set_cell(structure.cell * factor, scale_atoms=True)
         scaled_structure.calc = calculator.get_calculator(use_symmetry=False)
 
-        if optimize:
-            #scaled_structure = ExpCellFilter(scaled_structure)
+        if opt is not None:
             opt = BFGS(scaled_structure)
-            opt.run(fmax=0.01)  # Relax atomic positions
+            # Relax atomic positions
+            opt.run(fmax=opt.force_tolerance, steps=opt.max_steps)
 
         energy = scaled_structure.get_potential_energy()
         volume = scaled_structure.get_volume()
@@ -160,21 +153,22 @@ def make_murnaghan_workflow(
         wf.Calculator = Ace(potential_file=potential_path)
 
     # 3. Optimize the structure.
-    wf.optimize_structure = OptimizeStructure(
-        structure=structure,  # use structure from Bulk node
-        calculator=wf.Calculator,
-        fmax=fmax,
-        max_steps=max_steps
+    wf.optimize_settings = GenericOptimizerSettings(max_steps, fmax)
+    wf.optimize_structure = Relax(
+            mode="full",
+            calculator=wf.Calculator,
+            opt=wf.optimize_settings,
+            structure=structure,  # use structure from Bulk node
     )
 
     # 4. Calculate the energy–volume (EV) curve on the optimized structure.
     wf.calculate_ev_curve = CalculateEVCurve(
-        structure=wf.optimize_structure.outputs.structure,
+        structure=wf.optimize_structure.outputs.relaxed_structure,
         calculator=wf.Calculator,
         num_of_points=num_of_points,
         vol_range=vol_range,
         per_atom=per_atom,
-        optimize=optimize
+        opt=wf.optimize_settings if optimize else None
     )
 
     # 5. Fit the Birch–Murnaghan EOS to extract equilibrium properties.
@@ -195,8 +189,8 @@ def make_murnaghan_workflow(
     # (Assuming Bulk expects an input key "element_str"; adjust if necessary.)
     wf.inputs_map = {
         'build_structure__element_str': 'element_str',
-        'optimize_structure__fmax': 'fmax',
-        'optimize_structure__max_steps': 'max_steps',
+        'optimize_settings__fmax': 'fmax',
+        'optimize_settings__max_steps': 'max_steps',
         'calculate_ev_curve__num_of_points': 'num_of_points',
         'calculate_ev_curve__vol_range': 'vol_range',
         'calculate_ev_curve__per_atom': 'per_atom',

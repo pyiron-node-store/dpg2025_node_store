@@ -42,6 +42,8 @@ def Relax(mode: str | RelaxMode, calculator: AseCalculatorConfig, opt: GenericOp
     from ase.optimize import LBFGS
     from ase.calculators.singlepoint import SinglePointCalculator
 
+    if isinstance(mode, str):
+        mode = mode.lower()
     mode = RelaxMode(mode)
 
     structure = structure.copy()
