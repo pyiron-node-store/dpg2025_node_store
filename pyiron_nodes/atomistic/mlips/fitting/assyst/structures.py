@@ -56,11 +56,24 @@ class Elements(Sequence):
 @as_function_node
 def ElementInput(
         element: str,
-        min_ion: int =  1,
-        max_ion: int = 10,
-        step_ion: int = 1,
+        min_atoms: int =  1,
+        max_atoms: int = 10,
+        step_atoms: int = 1,
 ) -> Elements:
-    elements = Elements(tuple({element: i} for i in range(min_ion, max_ion + 1, step_ion)))
+    """Create a Elements object.
+
+    Can be combined with other Elements to create a sampling in chemical space
+    for :class`.SpaceGroupSampling`.
+    Each entry gives the number of atoms of an element
+
+    Args:
+        element (str): canonical symbol for element
+        min_atoms, max_atoms, step_atoms (int): range of number of atoms
+
+    Returns:
+        Elements: kj
+    """
+    elements = Elements(tuple({element: i} for i in range(min_atoms, max_atoms + 1, step_atoms)))
     return elements
 
 @as_function_node("filtered")
@@ -69,21 +82,30 @@ def FilterSize(
         min: int | None = 0,
         max: int | None = None,
 ):
+    """Filter an Elements object by size.
+
+    Args:
+        min (int): new object has at least this number of atoms
+        max (int): new object has at most this number of atoms
+
+    Returns:
+        Elements: filtered object
+    """
     import math
     if max is None:
         max = math.inf
     return Elements(tuple(s for s in elements
                                 if min <= sum(s.values()) <= max ))
 
-@as_function_node#("df")
+@as_function_node(use_cache=False)
 def ElementsTable(elements: Elements) -> pd.DataFrame:
+    """Display the number of atoms inside an `Elements` object as a table."""
     import pandas as pd
     from IPython.display import display
-    df = pd.DataFrame(elements.elements)
+    df = pd.DataFrame(elements.atoms)
     with pd.option_context("display.max_rows",    10000000,  # inf not allowed
                            "display.max_columns", 10000000): # just pick large
         display(df)
-    # return df
 
 @as_function_node
 def SpaceGroupSampling(
@@ -92,6 +114,17 @@ def SpaceGroupSampling(
         max_atoms: int = 10,
         max_structures: int | None = None,
 ) -> list[Atoms]:
+    """
+    Create symmetric random structures.
+
+    Args:
+        elements (Elements): list of compositions per structure
+        spacegroups (list of int): which space groups to generate
+        max_atoms (int): do not generate structures larger than this
+        max_structures (int): generate at most this many structures
+    Returns:
+        list of Atoms: generated structures
+    """
     from warnings import catch_warnings
     from structuretoolkit.build.random import pyxtal
     from tqdm.auto import tqdm
@@ -105,10 +138,10 @@ def SpaceGroupSampling(
     structures = []
     with catch_warnings(category=UserWarning, action='ignore'):
         for stoich in (bar := tqdm(elements)):
-            elements, num_ions = zip(*stoich.items())
-            stoich_str = "".join(f"{s}{n}" for s, n in zip(elements, num_ions))
+            elements, num_atomss = zip(*stoich.items())
+            stoich_str = "".join(f"{s}{n}" for s, n in zip(elements, num_atomss))
             bar.set_description(stoich_str)
-            structures += [s['atoms'] for s in pyxtal(spacegroups, elements, num_ions)]
+            structures += [s['atoms'] for s in pyxtal(spacegroups, elements, num_atomss)]
             if len(structures) > max_structures:
                 structures = structures[:max_structures]
                 break

@@ -195,7 +195,12 @@ def PlotAtomsCells(structures: list[_Atoms], angle_in_degrees: bool = True):
 
 
 @as_function_node(use_cache=False)
-def PlotDistances(structures: list[_Atoms], bins: int | Iterable[float] = 50, num_neighbors: int = 50, normalize: bool = True):
+def PlotDistances(
+        structures: list[_Atoms],
+        bins: int | list[float] | _np.ndarray = 50,
+        num_neighbors: int = 50,
+        normalize: bool = True
+):
     """Plot radial distribution of a list of structures.
 
     Args:

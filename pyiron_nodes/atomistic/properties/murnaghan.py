@@ -14,10 +14,7 @@ from pyiron_nodes.atomistic.structure.build import Bulk
 from pyiron_nodes.atomistic.mlips.calculator._generic import AseCalculatorConfig
 from pyiron_nodes.atomistic.mlips.calculator.ace import Ace
 from pyiron_nodes.atomistic.mlips.calculator.grace import Grace
-from pyiron_nodes.atomistic.mlips.fitting.assyst.calculators import (
-        Relax,
-        GenericOptimizerSettings,
-)
+from pyiron_nodes.atomistic.relax import Relax, GenericOptimizerSettings
 
 
 @as_function_node
@@ -28,7 +25,6 @@ def CalculateEVCurve(
     vol_range: float = 0.3,
     per_atom: bool = True,
     opt: GenericOptimizerSettings | None = None,
-
 ):
     """
     Computes an energy vs volume (EV) curve for a given structure.

@@ -8,16 +8,15 @@ from .structures import (
         SaveStructures
 )
 from .random import RattleLoop, StretchLoop
-from .calculators import GenericOptimizerSettings, Relax, RelaxLoop
+from pyiron_nodes.atomistic.relax import GenericOptimizerSettings, Relax, RelaxLoop
 from pyiron_nodes.atomistic.structure.view import PlotSPG
 from pyiron_nodes.atomistic.mlips.calculator.grace import Grace
 
-def make_assyst(name, *elements, delete_existing_savefiles=False):
-    # TODO!
-    min_ion = 2
-    max_ion = 4
-    max_structures = 50
-
+def make_assyst(
+        name, *elements,
+        min_atoms=2, max_atoms=4, max_structures=50,
+        delete_existing_savefiles=False
+):
     wf = Workflow(name, delete_existing_savefiles=delete_existing_savefiles)
     if wf.has_saved_content():
         return wf
@@ -25,11 +24,11 @@ def make_assyst(name, *elements, delete_existing_savefiles=False):
     element_nodes = []
     if len(elements) > 0:
         e1, *elements = elements
-        stoi = ElementInput(e1, min_ion=min_ion, max_ion=max_ion)
+        stoi = ElementInput(e1, min_atoms=min_atoms, max_atoms=max_atoms)
         setattr(wf, 'Element_1', stoi)
         element_nodes.append(stoi)
         for i, e in enumerate(elements):
-            en = ElementInput(e, min_ion=min_ion, max_ion=max_ion)
+            en = ElementInput(e, min_atoms=min_atoms, max_atoms=max_atoms)
             setattr(wf, f'Element_{i+2}', en)
             element_nodes.append(en)
             stoi = Multiply(stoi, en)
@@ -39,12 +38,12 @@ def make_assyst(name, *elements, delete_existing_savefiles=False):
         spg = SpaceGroupSampling(
                 elements=stoi,
                 spacegroups=None,
-                max_atoms=len(element_nodes) * max_ion,
+                max_atoms=len(element_nodes) * max_atoms,
                 max_structures=max_structures
         )
     else:
         spg = SpaceGroupSampling(
-                max_atoms=max_ion,
+                max_atoms=max_atoms,
                 max_structures=max_structures
         )
     plotspg = PlotSPG(spg)

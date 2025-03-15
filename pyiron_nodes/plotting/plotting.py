@@ -13,7 +13,7 @@ from pyiron_workflow import as_function_node
 
 
 @as_function_node("fig")
-def PlotDataFrame(df: pd.DataFrame, x: Optional[list | np.ndarray] = None):
+def PlotDataFrame(df: pd.DataFrame, x: list | np.ndarray):
     from matplotlib import pyplot as plt
 
     fig, ax = plt.subplots()
@@ -22,7 +22,7 @@ def PlotDataFrame(df: pd.DataFrame, x: Optional[list | np.ndarray] = None):
 
 
 @as_function_node("fig")
-def PlotDataFrameXY(df: pd.DataFrame, x: Optional[list | np.ndarray] = None):
+def PlotDataFrameXY(df: pd.DataFrame, x: list | np.ndarray):
     from matplotlib import pyplot as plt
 
     # Check if dataframe has only two columns and x parameter is not provided.
@@ -46,7 +46,7 @@ def PlotDataFrameXY(df: pd.DataFrame, x: Optional[list | np.ndarray] = None):
 
 @as_function_node("fig")
 def Scatter(
-    x: Optional[list | np.ndarray] = None, y: Optional[list | np.ndarray] = None
+    x: list | np.ndarray, y: list | np.ndarray
 ):
     from matplotlib import pyplot as plt
 
@@ -55,7 +55,7 @@ def Scatter(
 
 
 @as_function_node("fig")
-def ShowArray(mat: Optional[np.ndarray]):
+def ShowArray(mat: np.ndarray):
     from matplotlib import pyplot as plt
 
     plt.imshow(mat)
@@ -63,7 +63,7 @@ def ShowArray(mat: Optional[np.ndarray]):
 
 
 @as_function_node("fig")
-def Histogram(x: Optional[list | np.ndarray], bins: int = 50):
+def Histogram(x: list | np.ndarray, bins: int = 50):
     from matplotlib import pyplot as plt
 
     plt.hist(x, bins=bins)
@@ -72,13 +72,13 @@ def Histogram(x: Optional[list | np.ndarray], bins: int = 50):
 
 @as_function_node("figure")
 def Plot(
-    y: Optional[list | np.ndarray | pd.core.series.Series],
-    x: Optional[list | np.ndarray | pd.core.series.Series] = None,
-    axis: Optional[object] = None,
-    title: Optional[str] = "",
-    color: Optional[str] = "b",
-    symbol: Optional[str] = "o",
-    legend_label: Optional[str] = "",
+    y: list | np.ndarray | pd.core.series.Series,
+    x: list | np.ndarray | pd.core.series.Series,
+    axis: object,
+    title: str = "",
+    color: str = "b",
+    symbol: str = "o",
+    legend_label: str = "",
 ):
     from matplotlib import pyplot as plt
 
@@ -101,10 +101,10 @@ def Plot(
 
 @as_function_node("linspace")
 def Linspace(
-    start: Optional[int | float] = 0.0,
-    stop: Optional[int | float] = 1.0,
-    num: Optional[int] = 50,
-    endpoint: Optional[bool] = True,
+    start: int | float = 0.0,
+    stop: int | float = 1.0,
+    num: int = 50,
+    endpoint: bool = True,
 ):
     from numpy import linspace
 
