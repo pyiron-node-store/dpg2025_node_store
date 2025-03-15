@@ -106,7 +106,6 @@ def ReadPickledDatasetAsDataframe(
 
     return df
 
-
 @as_function_node
 def ParameterizePotentialConfig(
     number_of_functions: int | None = 10, rcut: float | int = 7.0
@@ -319,7 +318,6 @@ def _get_predicted_energies_forces(ace, structures, data_type: str):
         s.calc = None
     return energies, forces
 
-
 def _calc_rmse(array_1, array_2, rmse_in_milli: bool = True):
     """
     Calculates the RMSE value of two arrays
@@ -337,7 +335,6 @@ def _calc_rmse(array_1, array_2, rmse_in_milli: bool = True):
         return rmse * 1000
     else:
         return rmse
-
 
 def make_linearfit(
     workflow_name: str,
@@ -480,7 +477,7 @@ def PlotForcesFittingCurve(data_dict: dict):
             data_dict["reference_testing_fpa"],
             data_dict["predicted_testing_fpa"],
             color="black",
-            s=30,
+            s=15,
             marker="+",
             label=f"Testing RMSE = {rmse_testing:.2f} (meV/$\AA$)",
         )
